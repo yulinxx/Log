@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-# 公共配置
-include(Config.txt)
+include(../Config.txt)
 
 # 设置VCPKG工具链
 if(DEFINED VCPKG_DIR AND EXISTS "${VCPKG_DIR}")

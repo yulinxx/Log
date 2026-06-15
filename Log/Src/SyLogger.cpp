@@ -95,9 +95,7 @@ SyLogger& SyLogger::GetInstance()
     return instance;
 }
 
-SyLogger::SyLogger() : m_impl(std::make_unique<SyLoggerImpl>())
-{
-}
+SyLogger::SyLogger() = default;
 SyLogger::~SyLogger()
 {
     Shutdown();
@@ -211,13 +209,13 @@ void SyLogger::SetLevel(SyLogLevel level)
         spdlog::level::level_enum spdLevel;
         switch (level)
         {
-        case SyLogLevel::Trace:    spdLevel = spdlog::level::trace; break;
-        case SyLogLevel::Debug:    spdLevel = spdlog::level::debug; break;
-        case SyLogLevel::Info:     spdLevel = spdlog::level::info; break;
-        case SyLogLevel::Warn:     spdLevel = spdlog::level::warn; break;
-        case SyLogLevel::Error:    spdLevel = spdlog::level::err; break;
-        case SyLogLevel::Critical: spdLevel = spdlog::level::critical; break;
-        default:                   spdLevel = spdlog::level::off; break;
+            case SyLogLevel::Trace:    spdLevel = spdlog::level::trace; break;
+            case SyLogLevel::Debug:    spdLevel = spdlog::level::debug; break;
+            case SyLogLevel::Info:     spdLevel = spdlog::level::info; break;
+            case SyLogLevel::Warn:     spdLevel = spdlog::level::warn; break;
+            case SyLogLevel::Error:    spdLevel = spdlog::level::err; break;
+            case SyLogLevel::Critical: spdLevel = spdlog::level::critical; break;
+            default:                   spdLevel = spdlog::level::off; break;
         }
         m_impl->m_logger->set_level(spdLevel);
     }

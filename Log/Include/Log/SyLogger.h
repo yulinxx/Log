@@ -1,13 +1,13 @@
 #pragma once
 
-#include "LogAPI.h" 
+#include "LogAPI.h"
 #include <string>
 #include <memory>
 
 // ==================== 日志级别枚举 ====================
 /**
  * @brief 日志级别枚举，定义日志消息的严重程度
- * 
+ *
  * 日志级别从低到高排列，级别越高表示问题越严重。
  * 设置某个级别后，只有该级别及更高级别的日志会被记录。
  */
@@ -89,7 +89,7 @@ private:
     SyLogger(const SyLogger&) = delete;
     SyLogger& operator=(const SyLogger&) = delete;
 
-    std::unique_ptr<SyLoggerImpl> m_impl;  // pimpl 模式
+    std::unique_ptr<SyLoggerImpl> m_impl = std::make_unique<SyLoggerImpl>();  // pimpl 模式
 };
 
 // ==================== 便捷宏定义 ====================

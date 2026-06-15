@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 
-# 查找 spdlog 库
+set(LIB_NAME "Log")
+
 find_package(spdlog CONFIG REQUIRED)
 
-# 自动收集 Log 目录及子目录下的所有源文件和头文件
 file(GLOB_RECURSE LOG_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.cxx"
@@ -16,32 +16,35 @@ file(GLOB_RECURSE LOG_HEADERS CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Include/*.hpp"
 )
 
-# 创建动态库
-add_library(Log SHARED ${LOG_SOURCES} ${LOG_HEADERS})
+add_library(${LIB_NAME} SHARED
+    ${LOG_SOURCES}
+    ${LOG_HEADERS}
+)
 
-# 定义导出宏
-target_compile_definitions(Log PRIVATE LOG_EXPORTS)
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "Header Files" FILES ${LOG_HEADERS})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "Source Files" FILES ${LOG_SOURCES})
 
-# 设置包含目录
-target_include_directories(Log
+target_include_directories(${LIB_NAME}
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/Include"
 )
 
-# 链接 spdlog
-target_link_libraries(Log
+target_compile_features(${LIB_NAME} PUBLIC cxx_std_17)
+
+target_link_libraries(${LIB_NAME}
     PRIVATE
         spdlog::spdlog
 )
 
-# 设置 C++ 标准
-target_compile_features(Log PUBLIC cxx_std_17)
+target_compile_definitions(${LIB_NAME} PRIVATE LOG_EXPORTS)
 
-# MSVC 特定配置
 if(MSVC)
-    target_compile_options(Log PRIVATE /utf-8)
+    target_compile_options(${LIB_NAME} PRIVATE /utf-8 /FS)
 endif()
 
-# 设置项目文件夹
-source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/Include" PREFIX "Header Files" FILES ${LOG_HEADERS})
-source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/Src" PREFIX "Source Files" FILES ${LOG_SOURCES})
+message(STATUS "[${LIB_NAME}]")
+message(STATUS "  Library: ${LIB_NAME}")
+message(STATUS "  Version: 1.0.0")
+message(STATUS "  Platform: ${CMAKE_SYSTEM_NAME}(${CMAKE_SYSTEM_PROCESSOR})")
+message(STATUS "  Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "")
