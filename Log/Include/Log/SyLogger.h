@@ -22,6 +22,7 @@ enum class SyLogLevel
     Off = 6       ///< 关闭级别：关闭所有日志输出
 };
 
+///////////////////////////////////////////////////////
 // ==================== 日志配置结构 ====================
 struct LOG_API SyLogConfig
 {
@@ -35,6 +36,7 @@ struct LOG_API SyLogConfig
 
 class SyLoggerImpl;
 
+///////////////////////////////////////////////////////
 // ==================== 日志库核心类 ====================
 class LOG_API SyLogger
 {
@@ -67,6 +69,10 @@ public:
     // 获取日志文件目录
     std::string GetLogDirectory() const;
 
+    // 设置默认日志路径（用于统一路径管理）
+    static void SetDefaultLogPath(const std::string& path);
+    static std::string GetDefaultLogPath();
+
     // ==================== 字符串日志 ====================
     void TraceStr(const std::string& msg);
     void DebugStr(const std::string& msg);
@@ -92,6 +98,7 @@ private:
     std::unique_ptr<SyLoggerImpl> m_impl = std::make_unique<SyLoggerImpl>();  // pimpl 模式
 };
 
+//////////////////////////////////////////////////////
 // ==================== 便捷宏定义 ====================
 // 字符串日志
 #define SY_TRACE(msg)    SyLogger::GetInstance().TraceStr(msg)
@@ -110,6 +117,7 @@ private:
 #define SY_ERRORF(...)    SyLogger::GetInstance().ErrorF(__VA_ARGS__)
 #define SY_CRITICALF(...) SyLogger::GetInstance().CriticalF(__VA_ARGS__)
 
+///////////////////////////////////////////////////////////////////////
 // ==================== C API ====================
 extern "C" {
     LOG_API void SyLog_Init(const char* logName, int level, bool console, bool file);

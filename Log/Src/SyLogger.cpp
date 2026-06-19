@@ -15,6 +15,8 @@
 
 namespace fs = std::filesystem;
 
+static std::string g_defaultLogPath;
+
 // ==================== pimpl 实现类 ====================
 class SyLoggerImpl
 {
@@ -26,6 +28,11 @@ public:
 
     std::string GetDefaultLogPath()
     {
+        if (!g_defaultLogPath.empty())
+        {
+            return g_defaultLogPath;
+        }
+
 #ifdef _WIN32
         wchar_t* path = nullptr;
         if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, NULL, &path)))
@@ -111,7 +118,7 @@ void SyLogger::Initialize(const SyLogConfig& config)
 
     m_impl->m_config = config;
 
-    // 确定日志目录
+    // 日志目录
     std::string logDir = config.logPath.empty() ? m_impl->GetDefaultLogPath() : config.logPath;
     m_impl->m_config.logPath = logDir;
 
@@ -140,11 +147,11 @@ void SyLogger::Initialize(const SyLogConfig& config)
             // - %v - 实际日志消息
             auto fileSink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(logFile, 0, 0);
 
-            // - [%Y-%m-%d %H:%M:%S.%e] - 时间戳：年-月-日 时:分:秒.毫秒
-            // - [%l] - 日志级别（无颜色）
+            // - [%Y-%m-%d %H:%M:%S] - 时间戳：年-月-日 时:分:秒
+            // - [%L] - 日志级别（大写：INFO/DEBUG/WARN/ERROR）
             // - [%t] - 线程ID
             // - %v - 实际日志消息
-            fileSink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%t] %v");
+            fileSink->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] %v");
             sinks.push_back(fileSink);
         }
 
@@ -241,11 +248,22 @@ std::string SyLogger::GetLogDirectory() const
     return m_impl->m_config.logPath;
 }
 
+void SyLogger::SetDefaultLogPath(const std::string& path)
+{
+    g_defaultLogPath = path;
+}
+
+std::string SyLogger::GetDefaultLogPath()
+{
+    return g_defaultLogPath;
+}
+
 // ==================== 清理过期日志 ====================
 void SyLogger::CleanOldLogs()
 {
     if (!m_impl->m_config.fileEnable || m_impl->m_config.logPath.empty())
         return;
+
     m_impl->DoCleanOldLogs(m_impl->m_config.logPath, m_impl->m_config.maxAgeDays);
 }
 
