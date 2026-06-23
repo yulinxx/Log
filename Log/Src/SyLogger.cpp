@@ -199,7 +199,7 @@ void SyLogger::Shutdown()
 {
     if (m_impl->m_logger)
     {
-        m_impl->m_logger->info("=== SyLogger Shutdown ===");
+        m_impl->m_logger->info("=== SyLogger Shutdown ===\n\n");
         m_impl->m_logger->flush();
         spdlog::drop(m_impl->m_config.logName);
         m_impl->m_logger.reset();
