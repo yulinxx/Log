@@ -3,10 +3,12 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/daily_file_sink.h>
+#include <spdlog/sinks/base_sink.h>
 
 #include <filesystem>
 #include <chrono>
 #include <cstdarg>
+#include <mutex>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -16,6 +18,53 @@
 namespace fs = std::filesystem;
 
 static std::string g_defaultLogPath;
+
+// 仅转发指定级别区间的日志到内层 sink（用于 Debug 分流）
+template<typename Mutex>
+class LevelRangeSink : public spdlog::sinks::base_sink<Mutex>
+{
+public:
+    LevelRangeSink(spdlog::sink_ptr inner,
+                   spdlog::level::level_enum minLevel,
+                   spdlog::level::level_enum maxLevel)
+        : inner_(std::move(inner))
+        , minLevel_(minLevel)
+        , maxLevel_(maxLevel)
+    {
+        this->set_level(spdlog::level::trace);
+    }
+
+protected:
+    void sink_it_(const spdlog::details::log_msg& msg) override
+    {
+        if (msg.level >= minLevel_ && msg.level <= maxLevel_)
+        {
+            inner_->log(msg);
+        }
+    }
+
+    void flush_() override
+    {
+        inner_->flush();
+    }
+
+private:
+    spdlog::sink_ptr inner_;
+    spdlog::level::level_enum minLevel_;
+    spdlog::level::level_enum maxLevel_;
+};
+
+using LevelRangeSinkMt = LevelRangeSink<std::mutex>;
+
+static void AddDailyFileSink(std::vector<spdlog::sink_ptr>& sinks,
+                             const std::string& filePath,
+                             spdlog::level::level_enum minLevel = spdlog::level::trace)
+{
+    auto sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(filePath, 0, 0);
+    sink->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] %v");
+    sink->set_level(minLevel);
+    sinks.push_back(sink);
+}
 
 // ==================== pimpl 实现类 ====================
 class SyLoggerImpl
@@ -137,22 +186,32 @@ void SyLogger::Initialize(const SyLogConfig& config)
         // 文件输出（按天生成）
         if (config.fileEnable)
         {
-            // 创建目录
             fs::create_directories(logDir);
 
-            // 日志文件: logDir/logName.log，每天0点轮转
-            std::string logFile = (fs::path(logDir) / (config.logName + ".log")).string();
-            // - [%Y-%m-%d %H:%M:%S.%e] - 时间戳：年-月-日 时:分:秒.毫秒
-            // - [%^%l%$] - 彩色日志级别 ： %^ 开始颜色， %l 日志级别， %$ 结束颜色
-            // - %v - 实际日志消息
-            auto fileSink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(logFile, 0, 0);
+            // 主日志：全部级别，按时间线完整记录
+            const std::string logFile = (fs::path(logDir) / (config.logName + ".log")).string();
+            AddDailyFileSink(sinks, logFile);
 
-            // - [%Y-%m-%d %H:%M:%S] - 时间戳：年-月-日 时:分:秒
-            // - [%L] - 日志级别（大写：INFO/DEBUG/WARN/ERROR）
-            // - [%t] - 线程ID
-            // - %v - 实际日志消息
-            fileSink->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] %v");
-            sinks.push_back(fileSink);
+            // 错误分流：Warn / Error / Critical
+            if (config.splitErrorLog)
+            {
+                const std::string errorFile =
+                    (fs::path(logDir) / (config.logName + ".error.log")).string();
+                AddDailyFileSink(sinks, errorFile, spdlog::level::warn);
+            }
+
+            // Debug 分流：Trace / Debug（可选，避免主文件被大量调试日志淹没）
+            if (config.splitDebugLog)
+            {
+                const std::string debugFile =
+                    (fs::path(logDir) / (config.logName + ".debug.log")).string();
+                auto debugInner = std::make_shared<spdlog::sinks::daily_file_sink_mt>(debugFile, 0, 0);
+                debugInner->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] %v");
+                debugInner->set_level(spdlog::level::trace);
+                auto debugSink = std::make_shared<LevelRangeSinkMt>(
+                    debugInner, spdlog::level::trace, spdlog::level::debug);
+                sinks.push_back(debugSink);
+            }
         }
 
         // 创建 logger
@@ -175,6 +234,15 @@ void SyLogger::Initialize(const SyLogConfig& config)
 
         m_impl->m_logger->info("=== SyLogger Initialized ===");
         m_impl->m_logger->info("Log Directory: {}", logDir);
+        m_impl->m_logger->info("Main log: {}/{}.log", logDir, config.logName);
+        if (config.splitErrorLog)
+        {
+            m_impl->m_logger->info("Error log: {}/{}.error.log (WARN+)", logDir, config.logName);
+        }
+        if (config.splitDebugLog)
+        {
+            m_impl->m_logger->info("Debug log: {}/{}.debug.log (TRACE/DEBUG)", logDir, config.logName);
+        }
     }
     catch (const spdlog::spdlog_ex& ex)
     {

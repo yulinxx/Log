@@ -32,6 +32,8 @@ struct LOG_API SyLogConfig
     bool consoleEnable = true;                  // 控制台输出
     bool fileEnable = true;                     // 文件输出
     int maxAgeDays = 30;                        // 日志保留天数
+    bool splitErrorLog = true;                  // 额外写入 {logName}.error.log（Warn 及以上）
+    bool splitDebugLog = false;                 // 额外写入 {logName}.debug.log（Trace/Debug）
 };
 
 class SyLoggerImpl;
