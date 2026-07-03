@@ -25,8 +25,8 @@ class LevelRangeSink : public spdlog::sinks::base_sink<Mutex>
 {
 public:
     LevelRangeSink(spdlog::sink_ptr inner,
-                   spdlog::level::level_enum minLevel,
-                   spdlog::level::level_enum maxLevel)
+        spdlog::level::level_enum minLevel,
+        spdlog::level::level_enum maxLevel)
         : inner_(std::move(inner))
         , minLevel_(minLevel)
         , maxLevel_(maxLevel)
@@ -57,8 +57,8 @@ private:
 using LevelRangeSinkMt = LevelRangeSink<std::mutex>;
 
 static void AddDailyFileSink(std::vector<spdlog::sink_ptr>& sinks,
-                             const std::string& filePath,
-                             spdlog::level::level_enum minLevel = spdlog::level::trace)
+    const std::string& filePath,
+    spdlog::level::level_enum minLevel = spdlog::level::trace)
 {
     auto sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(filePath, 0, 0);
     sink->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] %v");
@@ -232,6 +232,7 @@ void SyLogger::Initialize(const SyLogConfig& config)
         // 清理过期日志
         CleanOldLogs();
 
+        m_impl->m_logger->info("\n\n");
         m_impl->m_logger->info("=== SyLogger Initialized ===");
         m_impl->m_logger->info("Log Directory: {}", logDir);
         m_impl->m_logger->info("Main log: {}/{}.log", logDir, config.logName);
