@@ -1,14 +1,17 @@
 #include "Log/SyLogger.h"
 
 #include <spdlog/spdlog.h>
+#include <spdlog/async.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/sinks/daily_file_sink.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/base_sink.h>
 
 #include <filesystem>
 #include <chrono>
 #include <cstdarg>
 #include <mutex>
+#include <atomic>
+#include <thread>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -19,7 +22,39 @@ namespace fs = std::filesystem;
 
 static std::string g_defaultLogPath;
 
-// 仅转发指定级别区间的日志到内层 sink（用于 Debug 分流）
+// ==================== 日志速率限制器 ====================
+class LogRateLimiter
+{
+public:
+    explicit LogRateLimiter(int maxPerSec)
+        : m_maxPerSec(maxPerSec)
+    {
+    }
+
+    bool allow()
+    {
+        if (m_maxPerSec <= 0)
+            return true;
+
+        auto now = std::chrono::steady_clock::now();
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastReset).count();
+        if (elapsed >= 1000)
+        {
+            m_count = 0;
+            m_lastReset = now;
+        }
+        return ++m_count <= m_maxPerSec;
+    }
+
+private:
+    int m_maxPerSec;
+    std::mutex m_mutex;
+    std::chrono::steady_clock::time_point m_lastReset{std::chrono::steady_clock::now()};
+    int m_count = 0;
+};
+
+// ==================== 级别区间过滤 Sink ====================
 template<typename Mutex>
 class LevelRangeSink : public spdlog::sinks::base_sink<Mutex>
 {
@@ -56,14 +91,53 @@ private:
 
 using LevelRangeSinkMt = LevelRangeSink<std::mutex>;
 
-static void AddDailyFileSink(std::vector<spdlog::sink_ptr>& sinks,
-    const std::string& filePath,
+// ==================== 级别映射 ====================
+static spdlog::level::level_enum ToSpdlogLevel(SyLogLevel level)
+{
+    switch (level)
+    {
+        case SyLogLevel::Trace:    return spdlog::level::trace;
+        case SyLogLevel::Debug:    return spdlog::level::debug;
+        case SyLogLevel::Info:     return spdlog::level::info;
+        case SyLogLevel::Warn:     return spdlog::level::warn;
+        case SyLogLevel::Error:    return spdlog::level::err;
+        case SyLogLevel::Critical: return spdlog::level::critical;
+        default:                   return spdlog::level::off;
+    }
+}
+
+// ==================== 文件 Sink 辅助函数 ====================
+static void AddRotatingFileSink(std::vector<spdlog::sink_ptr>& sinks,
+    const std::filesystem::path& filePath,
+    size_t maxFileSize,
+    size_t maxFiles,
     spdlog::level::level_enum minLevel = spdlog::level::trace)
 {
-    auto sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(filePath, 0, 0);
-    sink->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] %v");
+    auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filePath.native(), maxFileSize, maxFiles);
+    sink->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] [%s:%#] %v");
     sink->set_level(minLevel);
     sinks.push_back(sink);
+}
+
+// ==================== 格式化字符串（优化版：栈缓冲优先） ====================
+static std::string FormatString(const char* fmt, va_list args)
+{
+    va_list args_copy;
+    va_copy(args_copy, args);
+
+    char buf[256];
+    int size = std::vsnprintf(buf, sizeof(buf), fmt, args_copy);
+    va_end(args_copy);
+
+    if (size < 0)
+        return std::string(fmt);
+
+    if (static_cast<size_t>(size) < sizeof(buf))
+        return std::string(buf, static_cast<size_t>(size));
+
+    std::string result(static_cast<size_t>(size), '\0');
+    std::vsnprintf(result.data(), result.size() + 1, fmt, args);
+    return result;
 }
 
 // ==================== pimpl 实现类 ====================
@@ -72,8 +146,13 @@ class SyLoggerImpl
 public:
     std::shared_ptr<spdlog::logger> m_logger;
     SyLogConfig m_config;
-    bool m_enabled = true;
+    std::atomic<bool> m_enabled{true};
     bool m_bInitialized = false;
+    mutable std::mutex m_mutex;
+    std::unique_ptr<LogRateLimiter> m_rateLimiter;
+
+    static bool s_threadPoolInitialized;
+    static std::mutex s_tpMutex;
 
     std::string GetDefaultLogPath()
     {
@@ -107,13 +186,14 @@ public:
     {
         try
         {
-            if (!fs::exists(logDir))
+            fs::path logPath = fs::u8path(logDir);
+            if (!fs::exists(logPath))
                 return;
 
             auto now = std::chrono::system_clock::now();
             auto maxAge = std::chrono::hours(24 * maxAgeDays);
 
-            for (const auto& entry : fs::directory_iterator(logDir))
+            for (const auto& entry : fs::directory_iterator(logPath))
             {
                 if (!entry.is_regular_file())
                     continue;
@@ -130,19 +210,42 @@ public:
                 if (now - sctp > maxAge)
                 {
                     fs::remove(entry.path());
-                    if (m_logger)
-                    {
-                        m_logger->debug("Deleted old log: {}", entry.path().string());
-                    }
                 }
             }
         }
         catch (...)
         {
-            // 忽略清理错误
         }
     }
+
+    void ApplyLevel(SyLogLevel level)
+    {
+        m_config.level = level;
+        if (m_logger)
+            m_logger->set_level(ToSpdlogLevel(level));
+    }
+
+    void ApplyCleanOldLogs()
+    {
+        if (!m_config.fileEnable || m_config.logPath.empty())
+            return;
+        DoCleanOldLogs(m_config.logPath, m_config.maxAgeDays);
+    }
+
+    bool PrepareLogger(std::shared_ptr<spdlog::logger>& outLogger)
+    {
+        if (!m_enabled.load(std::memory_order_relaxed))
+            return false;
+        if (m_rateLimiter && !m_rateLimiter->allow())
+            return false;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        outLogger = m_logger;
+        return outLogger != nullptr;
+    }
 };
+
+bool SyLoggerImpl::s_threadPoolInitialized = false;
+std::mutex SyLoggerImpl::s_tpMutex;
 
 // ==================== 单例实现 ====================
 SyLogger& SyLogger::GetInstance()
@@ -160,22 +263,29 @@ SyLogger::~SyLogger()
 // ==================== 初始化 ====================
 void SyLogger::Initialize(const SyLogConfig& config)
 {
+    std::lock_guard<std::mutex> lock(m_impl->m_mutex);
+
     if (m_impl->m_bInitialized)
     {
-        Shutdown();
+        if (m_impl->m_logger)
+        {
+            m_impl->m_logger->flush();
+            spdlog::drop(m_impl->m_config.logName);
+            m_impl->m_logger.reset();
+        }
+        m_impl->m_bInitialized = false;
     }
 
     m_impl->m_config = config;
 
-    // 日志目录
-    std::string logDir = config.logPath.empty() ? m_impl->GetDefaultLogPath() : config.logPath;
-    m_impl->m_config.logPath = logDir;
+    std::string logDirStr = config.logPath.empty() ? m_impl->GetDefaultLogPath() : config.logPath;
+    m_impl->m_config.logPath = logDirStr;
+    fs::path logDir = fs::u8path(logDirStr);
 
     try
     {
         std::vector<spdlog::sink_ptr> sinks;
 
-        // 控制台输出（彩色）
         if (config.consoleEnable)
         {
             auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -183,30 +293,22 @@ void SyLogger::Initialize(const SyLogConfig& config)
             sinks.push_back(consoleSink);
         }
 
-        // 文件输出（按天生成）
         if (config.fileEnable)
         {
             fs::create_directories(logDir);
 
-            // 主日志：全部级别，按时间线完整记录
-            const std::string logFile = (fs::path(logDir) / (config.logName + ".log")).string();
-            AddDailyFileSink(sinks, logFile);
+            AddRotatingFileSink(sinks, logDir / (config.logName + ".log"), config.maxFileSize, config.maxFiles);
 
-            // 错误分流：Warn / Error / Critical
             if (config.splitErrorLog)
             {
-                const std::string errorFile =
-                    (fs::path(logDir) / (config.logName + ".error.log")).string();
-                AddDailyFileSink(sinks, errorFile, spdlog::level::warn);
+                AddRotatingFileSink(sinks, logDir / (config.logName + ".error.log"), config.maxFileSize, config.maxFiles, spdlog::level::warn);
             }
 
-            // Debug 分流：Trace / Debug（可选，避免主文件被大量调试日志淹没）
             if (config.splitDebugLog)
             {
-                const std::string debugFile =
-                    (fs::path(logDir) / (config.logName + ".debug.log")).string();
-                auto debugInner = std::make_shared<spdlog::sinks::daily_file_sink_mt>(debugFile, 0, 0);
-                debugInner->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] %v");
+                auto debugInner = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+                    (logDir / (config.logName + ".debug.log")).native(), config.maxFileSize, config.maxFiles);
+                debugInner->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] [%s:%#] %v");
                 debugInner->set_level(spdlog::level::trace);
                 auto debugSink = std::make_shared<LevelRangeSinkMt>(
                     debugInner, spdlog::level::trace, spdlog::level::debug);
@@ -214,40 +316,38 @@ void SyLogger::Initialize(const SyLogConfig& config)
             }
         }
 
-        // 创建 logger
-        m_impl->m_logger = std::make_shared<spdlog::logger>(config.logName, sinks.begin(), sinks.end());
+        if (!SyLoggerImpl::s_threadPoolInitialized)
+        {
+            std::lock_guard<std::mutex> tpLock(SyLoggerImpl::s_tpMutex);
+            if (!SyLoggerImpl::s_threadPoolInitialized)
+            {
+                spdlog::init_thread_pool(config.asyncQueueSize, config.asyncThreads);
+                SyLoggerImpl::s_threadPoolInitialized = true;
+            }
+        }
 
-        // 设置日志级别
-        SetLevel(config.level);
+        m_impl->m_logger = std::make_shared<spdlog::async_logger>(
+            config.logName, sinks.begin(), sinks.end(),
+            spdlog::thread_pool(),
+            spdlog::async_overflow_policy::block);
 
-        // warn 及以上自动 flush
+        m_impl->ApplyLevel(config.level);
+
         m_impl->m_logger->flush_on(spdlog::level::warn);
 
-        // 注册为默认 logger
         spdlog::set_default_logger(m_impl->m_logger);
 
+        m_impl->m_rateLimiter = (config.rateLimit > 0)
+            ? std::make_unique<LogRateLimiter>(config.rateLimit)
+            : nullptr;
+
         m_impl->m_bInitialized = true;
-        m_impl->m_enabled = true;
+        m_impl->m_enabled.store(true, std::memory_order_relaxed);
 
-        // 清理过期日志
-        CleanOldLogs();
-
-        m_impl->m_logger->info("\n\n");
-        m_impl->m_logger->info("=== SyLogger Initialized ===");
-        m_impl->m_logger->info("Log Directory: {}", logDir);
-        m_impl->m_logger->info("Main log: {}/{}.log", logDir, config.logName);
-        if (config.splitErrorLog)
-        {
-            m_impl->m_logger->info("Error log: {}/{}.error.log (WARN+)", logDir, config.logName);
-        }
-        if (config.splitDebugLog)
-        {
-            m_impl->m_logger->info("Debug log: {}/{}.debug.log (TRACE/DEBUG)", logDir, config.logName);
-        }
+        m_impl->ApplyCleanOldLogs();
     }
     catch (const spdlog::spdlog_ex& ex)
     {
-        // 失败时创建控制台 logger
         m_impl->m_logger = spdlog::stdout_color_mt(config.logName);
         m_impl->m_logger->error("Log init failed: {}", ex.what());
     }
@@ -266,35 +366,24 @@ void SyLogger::Initialize(const std::string& logName, SyLogLevel level, bool con
 // ==================== 关闭 ====================
 void SyLogger::Shutdown()
 {
+    std::lock_guard<std::mutex> lock(m_impl->m_mutex);
     if (m_impl->m_logger)
     {
-        m_impl->m_logger->info("=== SyLogger Shutdown ===\n\n");
         m_impl->m_logger->flush();
         spdlog::drop(m_impl->m_config.logName);
         m_impl->m_logger.reset();
     }
     m_impl->m_bInitialized = false;
+
+    spdlog::shutdown();
+    SyLoggerImpl::s_threadPoolInitialized = false;
 }
 
 // ==================== 级别控制 ====================
 void SyLogger::SetLevel(SyLogLevel level)
 {
-    m_impl->m_config.level = level;
-    if (m_impl->m_logger)
-    {
-        spdlog::level::level_enum spdLevel;
-        switch (level)
-        {
-            case SyLogLevel::Trace:    spdLevel = spdlog::level::trace; break;
-            case SyLogLevel::Debug:    spdLevel = spdlog::level::debug; break;
-            case SyLogLevel::Info:     spdLevel = spdlog::level::info; break;
-            case SyLogLevel::Warn:     spdLevel = spdlog::level::warn; break;
-            case SyLogLevel::Error:    spdLevel = spdlog::level::err; break;
-            case SyLogLevel::Critical: spdLevel = spdlog::level::critical; break;
-            default:                   spdLevel = spdlog::level::off; break;
-        }
-        m_impl->m_logger->set_level(spdLevel);
-    }
+    std::lock_guard<std::mutex> lock(m_impl->m_mutex);
+    m_impl->ApplyLevel(level);
 }
 
 SyLogLevel SyLogger::GetLevel() const
@@ -304,12 +393,12 @@ SyLogLevel SyLogger::GetLevel() const
 
 void SyLogger::SetEnabled(bool enabled)
 {
-    m_impl->m_enabled = enabled;
+    m_impl->m_enabled.store(enabled, std::memory_order_relaxed);
 }
 
 bool SyLogger::IsEnabled() const
 {
-    return m_impl->m_enabled;
+    return m_impl->m_enabled.load(std::memory_order_relaxed);
 }
 
 std::string SyLogger::GetLogDirectory() const
@@ -330,119 +419,114 @@ std::string SyLogger::GetDefaultLogPath()
 // ==================== 清理过期日志 ====================
 void SyLogger::CleanOldLogs()
 {
-    if (!m_impl->m_config.fileEnable || m_impl->m_config.logPath.empty())
-        return;
-
-    m_impl->DoCleanOldLogs(m_impl->m_config.logPath, m_impl->m_config.maxAgeDays);
+    std::lock_guard<std::mutex> lock(m_impl->m_mutex);
+    m_impl->ApplyCleanOldLogs();
 }
 
-// ==================== 字符串日志 ====================
+// ==================== 字符串日志（向后兼容） ====================
 void SyLogger::TraceStr(const std::string& msg)
 {
-    if (m_impl->m_enabled && m_impl->m_logger)
-        m_impl->m_logger->trace(msg);
+    std::shared_ptr<spdlog::logger> logger;
+    if (!m_impl->PrepareLogger(logger))
+        return;
+    logger->log(spdlog::level::trace, msg);
 }
+
 void SyLogger::DebugStr(const std::string& msg)
 {
-    if (m_impl->m_enabled && m_impl->m_logger)
-        m_impl->m_logger->debug(msg);
+    std::shared_ptr<spdlog::logger> logger;
+    if (!m_impl->PrepareLogger(logger))
+        return;
+    logger->log(spdlog::level::debug, msg);
 }
+
 void SyLogger::InfoStr(const std::string& msg)
 {
-    if (m_impl->m_enabled && m_impl->m_logger)
-        m_impl->m_logger->info(msg);
+    std::shared_ptr<spdlog::logger> logger;
+    if (!m_impl->PrepareLogger(logger))
+        return;
+    logger->log(spdlog::level::info, msg);
 }
+
 void SyLogger::WarnStr(const std::string& msg)
 {
-    if (m_impl->m_enabled && m_impl->m_logger)
-        m_impl->m_logger->warn(msg);
+    std::shared_ptr<spdlog::logger> logger;
+    if (!m_impl->PrepareLogger(logger))
+        return;
+    logger->log(spdlog::level::warn, msg);
 }
+
 void SyLogger::ErrorStr(const std::string& msg)
 {
-    if (m_impl->m_enabled && m_impl->m_logger)
-        m_impl->m_logger->error(msg);
+    std::shared_ptr<spdlog::logger> logger;
+    if (!m_impl->PrepareLogger(logger))
+        return;
+    logger->log(spdlog::level::err, msg);
 }
+
 void SyLogger::CriticalStr(const std::string& msg)
 {
-    if (m_impl->m_enabled && m_impl->m_logger)
-        m_impl->m_logger->critical(msg);
+    std::shared_ptr<spdlog::logger> logger;
+    if (!m_impl->PrepareLogger(logger))
+        return;
+    logger->log(spdlog::level::critical, msg);
 }
 
-// ==================== 格式化日志 (printf风格) ====================
-static std::string FormatString(const char* fmt, va_list args)
-{
-    va_list args_copy;
-    va_copy(args_copy, args);
-    int size = std::vsnprintf(nullptr, 0, fmt, args_copy);
-    va_end(args_copy);
-
-    if (size < 0)
-        return std::string(fmt);
-
-    std::string result(size + 1, '\0');
-    std::vsnprintf(&result[0], result.size(), fmt, args);
-    result.resize(size);
-    return result;
+// ==================== 格式化日志（向后兼容） ====================
+#define DEFINE_LEGACY_PRINTF_METHOD(name, spdLevel) \
+void SyLogger::name(const char* fmt, ...) \
+{ \
+    std::shared_ptr<spdlog::logger> logger; \
+    if (!m_impl->PrepareLogger(logger)) \
+        return; \
+    if (!logger->should_log(spdLevel)) \
+        return; \
+    va_list args; \
+    va_start(args, fmt); \
+    std::string formatted = FormatString(fmt, args); \
+    va_end(args); \
+    logger->log(spdLevel, formatted); \
 }
 
-void SyLogger::TraceF(const char* fmt, ...)
+DEFINE_LEGACY_PRINTF_METHOD(TraceF, spdlog::level::trace)
+DEFINE_LEGACY_PRINTF_METHOD(DebugF, spdlog::level::debug)
+DEFINE_LEGACY_PRINTF_METHOD(InfoF, spdlog::level::info)
+DEFINE_LEGACY_PRINTF_METHOD(WarnF, spdlog::level::warn)
+DEFINE_LEGACY_PRINTF_METHOD(ErrorF, spdlog::level::err)
+DEFINE_LEGACY_PRINTF_METHOD(CriticalF, spdlog::level::critical)
+
+// ==================== 带源位置的字符串日志（由宏使用） ====================
+void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const std::string& msg)
 {
-    if (!m_impl->m_enabled || !m_impl->m_logger)
+    std::shared_ptr<spdlog::logger> logger;
+    if (!m_impl->PrepareLogger(logger))
+        return;
+    auto spdLevel = ToSpdlogLevel(level);
+    if (!logger->should_log(spdLevel))
+        return;
+    if (file)
+        logger->log(spdlog::source_loc{file, line, ""}, spdLevel, msg);
+    else
+        logger->log(spdLevel, msg);
+}
+
+// ==================== 带源位置的格式化日志（由宏使用） ====================
+void SyLogger::LogFSrc(SyLogLevel level, const char* file, int line, const char* fmt, ...)
+{
+    std::shared_ptr<spdlog::logger> logger;
+    if (!m_impl->PrepareLogger(logger))
+        return;
+    auto spdLevel = ToSpdlogLevel(level);
+    if (!logger->should_log(spdLevel))
         return;
     va_list args;
     va_start(args, fmt);
-    m_impl->m_logger->trace(FormatString(fmt, args));
+    std::string formatted = FormatString(fmt, args);
     va_end(args);
-}
-
-void SyLogger::DebugF(const char* fmt, ...)
-{
-    if (!m_impl->m_enabled || !m_impl->m_logger)
-        return;
-    va_list args;
-    va_start(args, fmt);
-    m_impl->m_logger->debug(FormatString(fmt, args));
-    va_end(args);
-}
-
-void SyLogger::InfoF(const char* fmt, ...)
-{
-    if (!m_impl->m_enabled || !m_impl->m_logger)
-        return;
-    va_list args;
-    va_start(args, fmt);
-    m_impl->m_logger->info(FormatString(fmt, args));
-    va_end(args);
-}
-
-void SyLogger::WarnF(const char* fmt, ...)
-{
-    if (!m_impl->m_enabled || !m_impl->m_logger)
-        return;
-    va_list args;
-    va_start(args, fmt);
-    m_impl->m_logger->warn(FormatString(fmt, args));
-    va_end(args);
-}
-
-void SyLogger::ErrorF(const char* fmt, ...)
-{
-    if (!m_impl->m_enabled || !m_impl->m_logger)
-        return;
-    va_list args;
-    va_start(args, fmt);
-    m_impl->m_logger->error(FormatString(fmt, args));
-    va_end(args);
-}
-
-void SyLogger::CriticalF(const char* fmt, ...)
-{
-    if (!m_impl->m_enabled || !m_impl->m_logger)
-        return;
-    va_list args;
-    va_start(args, fmt);
-    m_impl->m_logger->critical(FormatString(fmt, args));
-    va_end(args);
+    if (file)
+        logger->log(spdlog::source_loc{file, line, ""}, spdLevel, formatted);
+    else
+        logger->log(spdLevel, formatted);
 }
 
 // ==================== C API ====================
@@ -476,22 +560,27 @@ extern "C" {
     {
         SyLogger::GetInstance().TraceStr(msg ? msg : "");
     }
+
     void SyLog_Debug(const char* msg)
     {
         SyLogger::GetInstance().DebugStr(msg ? msg : "");
     }
+
     void SyLog_Info(const char* msg)
     {
         SyLogger::GetInstance().InfoStr(msg ? msg : "");
     }
+
     void SyLog_Warn(const char* msg)
     {
         SyLogger::GetInstance().WarnStr(msg ? msg : "");
     }
+
     void SyLog_Error(const char* msg)
     {
         SyLogger::GetInstance().ErrorStr(msg ? msg : "");
     }
+
     void SyLog_Critical(const char* msg)
     {
         SyLogger::GetInstance().CriticalStr(msg ? msg : "");
