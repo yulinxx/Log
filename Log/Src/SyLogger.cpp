@@ -20,6 +20,23 @@
 
 namespace fs = std::filesystem;
 
+static std::string pathToUtf8(const fs::path& p)
+{
+#ifdef _WIN32
+    if (p.empty())
+        return {};
+    const std::wstring w = p.native();
+    int len = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (len <= 0)
+        return {};
+    std::string s(len - 1, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, s.data(), len, nullptr, nullptr);
+    return s;
+#else
+    return p.string();
+#endif
+}
+
 static std::string g_defaultLogPath;
 
 // ==================== 日志速率限制器 ====================
@@ -108,12 +125,12 @@ static spdlog::level::level_enum ToSpdlogLevel(SyLogLevel level)
 
 // ==================== 文件 Sink 辅助函数 ====================
 static void AddRotatingFileSink(std::vector<spdlog::sink_ptr>& sinks,
-    const std::filesystem::path& filePath,
+    const std::string& filePath,
     size_t maxFileSize,
     size_t maxFiles,
     spdlog::level::level_enum minLevel = spdlog::level::trace)
 {
-    auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filePath.native(), maxFileSize, maxFiles);
+    auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filePath, maxFileSize, maxFiles);
     sink->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] [%s:%#] %v");
     sink->set_level(minLevel);
     sinks.push_back(sink);
@@ -297,17 +314,17 @@ void SyLogger::Initialize(const SyLogConfig& config)
         {
             fs::create_directories(logDir);
 
-            AddRotatingFileSink(sinks, logDir / (config.logName + ".log"), config.maxFileSize, config.maxFiles);
+            AddRotatingFileSink(sinks, pathToUtf8(logDir / (config.logName + ".log")), config.maxFileSize, config.maxFiles);
 
             if (config.splitErrorLog)
             {
-                AddRotatingFileSink(sinks, logDir / (config.logName + ".error.log"), config.maxFileSize, config.maxFiles, spdlog::level::warn);
+                AddRotatingFileSink(sinks, pathToUtf8(logDir / (config.logName + ".error.log")), config.maxFileSize, config.maxFiles, spdlog::level::warn);
             }
 
             if (config.splitDebugLog)
             {
                 auto debugInner = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-                    (logDir / (config.logName + ".debug.log")).native(), config.maxFileSize, config.maxFiles);
+                    pathToUtf8(logDir / (config.logName + ".debug.log")), config.maxFileSize, config.maxFiles);
                 debugInner->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] [%s:%#] %v");
                 debugInner->set_level(spdlog::level::trace);
                 auto debugSink = std::make_shared<LevelRangeSinkMt>(
