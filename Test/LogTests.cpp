@@ -8,6 +8,10 @@
 #include <chrono>
 #include <thread>
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 // ==================== 日志级别测试 ====================
 
 TEST(SyLogLevelTest, LevelComparison)
@@ -37,30 +41,45 @@ TEST(SyLogConfigTest, DefaultConfiguration)
 {
     SyLogConfig config;
     
-    EXPECT_EQ(config.logName, "SanYi");
-    EXPECT_EQ(config.logPath, "");
+    EXPECT_STREQ(config.logName, "SanYi");
+    EXPECT_STREQ(config.logPath, "");
     EXPECT_EQ(config.level, SyLogLevel::Debug);
     EXPECT_TRUE(config.consoleEnable);
     EXPECT_TRUE(config.fileEnable);
     EXPECT_EQ(config.maxAgeDays, 30);
+    EXPECT_EQ(config.maxFileSize, 10 * 1024 * 1024);
+    EXPECT_EQ(config.maxFiles, 10);
+    EXPECT_EQ(config.rateLimit, 0);
+    EXPECT_EQ(config.asyncQueueSize, 8192);
+    EXPECT_EQ(config.asyncThreads, 1);
 }
 
 TEST(SyLogConfigTest, CustomConfiguration)
 {
     SyLogConfig config;
     config.logName = "TestApp";
-    config.logPath = "C:/TestLogs";
+    config.logPath = "";
     config.level = SyLogLevel::Info;
     config.consoleEnable = false;
     config.fileEnable = true;
     config.maxAgeDays = 7;
+    config.maxFileSize = 5 * 1024 * 1024;
+    config.maxFiles = 3;
+    config.rateLimit = 100;
+    config.asyncQueueSize = 4096;
+    config.asyncThreads = 2;
     
-    EXPECT_EQ(config.logName, "TestApp");
-    EXPECT_EQ(config.logPath, "C:/TestLogs");
+    EXPECT_STREQ(config.logName, "TestApp");
+    EXPECT_STREQ(config.logPath, "");
     EXPECT_EQ(config.level, SyLogLevel::Info);
     EXPECT_FALSE(config.consoleEnable);
     EXPECT_TRUE(config.fileEnable);
     EXPECT_EQ(config.maxAgeDays, 7);
+    EXPECT_EQ(config.maxFileSize, 5 * 1024 * 1024);
+    EXPECT_EQ(config.maxFiles, 3);
+    EXPECT_EQ(config.rateLimit, 100);
+    EXPECT_EQ(config.asyncQueueSize, 4096);
+    EXPECT_EQ(config.asyncThreads, 2);
 }
 
 // ==================== 日志器单例测试 ====================
@@ -229,29 +248,38 @@ TEST(SyLoggerTest, LogDirectory)
     
     logger.Initialize("DirectoryTest");
     
-    std::string logDir = logger.GetLogDirectory();
+    const char* logDir = logger.GetLogDirectory();
     
     // 日志目录应该不为空
-    EXPECT_FALSE(logDir.empty());
+    EXPECT_TRUE(logDir != nullptr);
+    EXPECT_STRNE(logDir, "");
     
     // 应该包含日志名称
-    EXPECT_NE(logDir.find("DirectoryTest"), std::string::npos);
+    EXPECT_TRUE(std::string(logDir).find("DirectoryTest") != std::string::npos);
 }
 
 TEST(SyLoggerTest, CustomLogPath)
 {
     SyLogger& logger = SyLogger::GetInstance();
     
+    // 使用用户临时目录，避免权限问题
+    char tempPath[MAX_PATH] = {0};
+#ifdef _WIN32
+    GetTempPathA(MAX_PATH, tempPath);
+#endif
+    std::string customPath = std::string(tempPath) + "SanYiLogs";
+    
     SyLogConfig config;
     config.logName = "CustomPathTest";
-    config.logPath = "C:/Temp/SanYiLogs";
+    config.logPath = customPath.c_str();
     
     logger.Initialize(config);
     
-    std::string logDir = logger.GetLogDirectory();
+    const char* logDir = logger.GetLogDirectory();
     
     // 应该使用自定义路径
-    EXPECT_NE(logDir.find("C:/Temp/SanYiLogs"), std::string::npos);
+    EXPECT_TRUE(logDir != nullptr);
+    EXPECT_TRUE(std::string(logDir).find("SanYiLogs") != std::string::npos);
 }
 
 TEST(SyLoggerTest, CleanOldLogs)
@@ -337,7 +365,7 @@ TEST(SyLoggerTest, ErrorHandling)
     
     // 测试非常长的消息
     std::string longMessage(10000, 'X');
-    EXPECT_NO_THROW(logger.InfoStr(longMessage));
+    EXPECT_NO_THROW(logger.InfoStr(longMessage.c_str()));
     
     // 测试格式化字符串中的无效格式
     EXPECT_NO_THROW(logger.InfoF("Invalid format: %"));
@@ -360,6 +388,65 @@ TEST(SyLoggerMacroTest, StringMacros)
     SY_CRITICAL("Critical macro message");
 }
 
+// ==================== 源位置日志测试 ====================
+
+TEST(SyLoggerTest, SourceLocationLogging)
+{
+    SyLogger& logger = SyLogger::GetInstance();
+
+    logger.Initialize("SrcLocTest", SyLogLevel::Trace);
+
+    // 使用 LogSrc / LogFSrc
+    logger.LogSrc(SyLogLevel::Info, __FILE__, __LINE__, "LogSrc message");
+    logger.LogFSrc(SyLogLevel::Warn, __FILE__, __LINE__, "LogFSrc %s %d", "test", 42);
+
+    // 使用宏（自动捕获源位置）
+    SY_TRACE("Source location via macro");
+    SY_INFO("Source location via macro");
+    SY_WARN("Source location via macro");
+
+    SY_TRACEF("Formatted %s via macro", "trace");
+    SY_INFOF("Formatted %s via macro", "info");
+    SY_ERRORF("Formatted %s=%d", "code", 500);
+}
+
+TEST(SyLoggerTest, LogSrcLevelFiltering)
+{
+    SyLogger& logger = SyLogger::GetInstance();
+
+    logger.Initialize("SrcFilterTest", SyLogLevel::Warn);
+
+    // 这些应该被过滤掉（级别低于 Warn）
+    logger.LogSrc(SyLogLevel::Trace, __FILE__, __LINE__, "Should be filtered");
+    logger.LogSrc(SyLogLevel::Debug, __FILE__, __LINE__, "Should be filtered");
+    logger.LogSrc(SyLogLevel::Info, __FILE__, __LINE__, "Should be filtered");
+
+    // 这些应该被记录
+    logger.LogSrc(SyLogLevel::Warn, __FILE__, __LINE__, "Should be logged");
+    logger.LogSrc(SyLogLevel::Error, __FILE__, __LINE__, "Should be logged");
+    logger.LogSrc(SyLogLevel::Critical, __FILE__, __LINE__, "Should be logged");
+}
+
+// ==================== 速率限制测试 ====================
+
+TEST(SyLoggerTest, RateLimiting)
+{
+    SyLogConfig config;
+    config.logName = "RateLimitTest";
+    config.level = SyLogLevel::Trace;
+    config.rateLimit = 5;
+
+    SyLogger& logger = SyLogger::GetInstance();
+    logger.Initialize(config);
+
+    // 连续写入 20 条，应该只有 5 条通过
+    for (int i = 0; i < 20; ++i)
+    {
+        std::string msg = "Rate limited message " + std::to_string(i);
+        logger.TraceStr(msg.c_str());
+    }
+}
+
 // ==================== 内存管理测试 ====================
 
 TEST(SyLoggerTest, MemoryManagement)
@@ -368,7 +455,8 @@ TEST(SyLoggerTest, MemoryManagement)
     for (int i = 0; i < 10; ++i) {
         SyLogger& logger = SyLogger::GetInstance();
         
-        logger.Initialize("MemoryTest" + std::to_string(i));
+        std::string logName = "MemoryTest" + std::to_string(i);
+        logger.Initialize(logName.c_str());
         
         // 记录一些日志
         for (int j = 0; j < 10; ++j) {

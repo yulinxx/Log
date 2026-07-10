@@ -162,7 +162,7 @@ class SyLoggerImpl
 {
 public:
     std::shared_ptr<spdlog::logger> m_logger;
-    SyLogConfig m_config;
+    SyLogConfigInternal m_config;
     std::atomic<bool> m_enabled{true};
     bool m_bInitialized = false;
     mutable std::mutex m_mutex;
@@ -293,9 +293,9 @@ void SyLogger::Initialize(const SyLogConfig& config)
         m_impl->m_bInitialized = false;
     }
 
-    m_impl->m_config = config;
+    m_impl->m_config = static_cast<SyLogConfigInternal>(config);
 
-    std::string logDirStr = config.logPath.empty() ? m_impl->GetDefaultLogPath() : config.logPath;
+    std::string logDirStr = (!config.logPath || *config.logPath == '\0') ? m_impl->GetDefaultLogPath() : config.logPath;
     m_impl->m_config.logPath = logDirStr;
     fs::path logDir = fs::u8path(logDirStr);
 
@@ -314,17 +314,18 @@ void SyLogger::Initialize(const SyLogConfig& config)
         {
             fs::create_directories(logDir);
 
-            AddRotatingFileSink(sinks, pathToUtf8(logDir / (config.logName + ".log")), config.maxFileSize, config.maxFiles);
+            std::string logNameStr = config.logName ? config.logName : "";
+            AddRotatingFileSink(sinks, pathToUtf8(logDir / (logNameStr + ".log")), config.maxFileSize, config.maxFiles);
 
             if (config.splitErrorLog)
             {
-                AddRotatingFileSink(sinks, pathToUtf8(logDir / (config.logName + ".error.log")), config.maxFileSize, config.maxFiles, spdlog::level::warn);
+                AddRotatingFileSink(sinks, pathToUtf8(logDir / (logNameStr + ".error.log")), config.maxFileSize, config.maxFiles, spdlog::level::warn);
             }
 
             if (config.splitDebugLog)
             {
                 auto debugInner = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-                    pathToUtf8(logDir / (config.logName + ".debug.log")), config.maxFileSize, config.maxFiles);
+                    pathToUtf8(logDir / (logNameStr + ".debug.log")), config.maxFileSize, config.maxFiles);
                 debugInner->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] [%s:%#] %v");
                 debugInner->set_level(spdlog::level::trace);
                 auto debugSink = std::make_shared<LevelRangeSinkMt>(
@@ -370,10 +371,10 @@ void SyLogger::Initialize(const SyLogConfig& config)
     }
 }
 
-void SyLogger::Initialize(const std::string& logName, SyLogLevel level, bool consoleEnable, bool fileEnable)
+void SyLogger::Initialize(const char* logName, SyLogLevel level, bool consoleEnable, bool fileEnable)
 {
     SyLogConfig config;
-    config.logName = logName;
+    config.logName = logName ? logName : "SanYi";
     config.level = level;
     config.consoleEnable = consoleEnable;
     config.fileEnable = fileEnable;
@@ -418,19 +419,23 @@ bool SyLogger::IsEnabled() const
     return m_impl->m_enabled.load(std::memory_order_relaxed);
 }
 
-std::string SyLogger::GetLogDirectory() const
+const char* SyLogger::GetLogDirectory() const
 {
-    return m_impl->m_config.logPath;
+    static std::string cachedPath;
+    cachedPath = m_impl->m_config.logPath;
+    return cachedPath.c_str();
 }
 
-void SyLogger::SetDefaultLogPath(const std::string& path)
+void SyLogger::SetDefaultLogPath(const char* path)
 {
-    g_defaultLogPath = path;
+    g_defaultLogPath = path ? path : "";
 }
 
-std::string SyLogger::GetDefaultLogPath()
+const char* SyLogger::GetDefaultLogPath()
 {
-    return g_defaultLogPath;
+    static std::string cachedPath;
+    cachedPath = g_defaultLogPath;
+    return cachedPath.c_str();
 }
 
 // ==================== 清理过期日志 ====================
@@ -441,52 +446,52 @@ void SyLogger::CleanOldLogs()
 }
 
 // ==================== 字符串日志（向后兼容） ====================
-void SyLogger::TraceStr(const std::string& msg)
+void SyLogger::TraceStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
         return;
-    logger->log(spdlog::level::trace, msg);
+    logger->log(spdlog::level::trace, msg ? msg : "");
 }
 
-void SyLogger::DebugStr(const std::string& msg)
+void SyLogger::DebugStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
         return;
-    logger->log(spdlog::level::debug, msg);
+    logger->log(spdlog::level::debug, msg ? msg : "");
 }
 
-void SyLogger::InfoStr(const std::string& msg)
+void SyLogger::InfoStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
         return;
-    logger->log(spdlog::level::info, msg);
+    logger->log(spdlog::level::info, msg ? msg : "");
 }
 
-void SyLogger::WarnStr(const std::string& msg)
+void SyLogger::WarnStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
         return;
-    logger->log(spdlog::level::warn, msg);
+    logger->log(spdlog::level::warn, msg ? msg : "");
 }
 
-void SyLogger::ErrorStr(const std::string& msg)
+void SyLogger::ErrorStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
         return;
-    logger->log(spdlog::level::err, msg);
+    logger->log(spdlog::level::err, msg ? msg : "");
 }
 
-void SyLogger::CriticalStr(const std::string& msg)
+void SyLogger::CriticalStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
         return;
-    logger->log(spdlog::level::critical, msg);
+    logger->log(spdlog::level::critical, msg ? msg : "");
 }
 
 // ==================== 格式化日志（向后兼容） ====================
@@ -513,7 +518,7 @@ DEFINE_LEGACY_PRINTF_METHOD(ErrorF, spdlog::level::err)
 DEFINE_LEGACY_PRINTF_METHOD(CriticalF, spdlog::level::critical)
 
 // ==================== 带源位置的字符串日志（由宏使用） ====================
-void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const std::string& msg)
+void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
@@ -522,9 +527,9 @@ void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const std::s
     if (!logger->should_log(spdLevel))
         return;
     if (file)
-        logger->log(spdlog::source_loc{file, line, ""}, spdLevel, msg);
+        logger->log(spdlog::source_loc{file, line, ""}, spdLevel, msg ? msg : "");
     else
-        logger->log(spdLevel, msg);
+        logger->log(spdLevel, msg ? msg : "");
 }
 
 // ==================== 带源位置的格式化日志（由宏使用） ====================
@@ -603,3 +608,9 @@ extern "C" {
         SyLogger::GetInstance().CriticalStr(msg ? msg : "");
     }
 } // extern "C"
+
+
+void SyLogger::Initialize(const std::string& logName, SyLogLevel level, bool consoleEnable, bool fileEnable)
+{
+    Initialize(logName.c_str(), level, consoleEnable, fileEnable);
+}
