@@ -120,6 +120,10 @@ public:
     void CriticalF(const char* fmt, ...);
 
     void LogSrc(SyLogLevel level, const char* file, int line, const char* msg);
+    inline void LogSrc(SyLogLevel level, const char* file, int line, const std::string& msg)
+    {
+        LogSrc(level, file, line, msg.c_str());
+    }
     void LogFSrc(SyLogLevel level, const char* file, int line, const char* fmt, ...);
 
 private:

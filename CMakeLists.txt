@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 4.3)
+cmake_minimum_required(VERSION 4.3)
 
 include(../Config.txt)
 
@@ -9,6 +9,8 @@ project(SanYiLog
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/../CMake/StandaloneInit.cmake)
+
+sanyi_find_gtest()
 
 option(BUILD_LOG_TESTS "Build Log module tests" ON)
 option(BUILD_LOG_EXAMPLE "Build Log usage example" ON)
