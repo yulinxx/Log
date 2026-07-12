@@ -67,7 +67,7 @@ public:
 private:
     int m_maxPerSec;
     std::mutex m_mutex;
-    std::chrono::steady_clock::time_point m_lastReset{std::chrono::steady_clock::now()};
+    std::chrono::steady_clock::time_point m_lastReset{ std::chrono::steady_clock::now() };
     int m_count = 0;
 };
 
@@ -163,7 +163,7 @@ class SyLoggerImpl
 public:
     std::shared_ptr<spdlog::logger> m_logger;
     SyLogConfigInternal m_config;
-    std::atomic<bool> m_enabled{true};
+    std::atomic<bool> m_enabled{ true };
     bool m_bInitialized = false;
     mutable std::mutex m_mutex;
     std::unique_ptr<LogRateLimiter> m_rateLimiter;
@@ -527,7 +527,7 @@ void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const char* 
     if (!logger->should_log(spdLevel))
         return;
     if (file)
-        logger->log(spdlog::source_loc{file, line, ""}, spdLevel, msg ? msg : "");
+        logger->log(spdlog::source_loc{ file, line, "" }, spdLevel, msg ? msg : "");
     else
         logger->log(spdLevel, msg ? msg : "");
 }
@@ -546,7 +546,7 @@ void SyLogger::LogFSrc(SyLogLevel level, const char* file, int line, const char*
     std::string formatted = FormatString(fmt, args);
     va_end(args);
     if (file)
-        logger->log(spdlog::source_loc{file, line, ""}, spdLevel, formatted);
+        logger->log(spdlog::source_loc{ file, line, "" }, spdLevel, formatted);
     else
         logger->log(spdLevel, formatted);
 }
@@ -608,7 +608,6 @@ extern "C" {
         SyLogger::GetInstance().CriticalStr(msg ? msg : "");
     }
 } // extern "C"
-
 
 void SyLogger::Initialize(const std::string& logName, SyLogLevel level, bool consoleEnable, bool fileEnable)
 {
