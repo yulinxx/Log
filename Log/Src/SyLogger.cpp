@@ -38,6 +38,7 @@ static std::string pathToUtf8(const fs::path& p)
 }
 
 static std::string g_defaultLogPath;
+static SyLogger::LogPathCallback g_logPathCallback;
 
 // ==================== 日志速率限制器 ====================
 class LogRateLimiter
@@ -178,6 +179,13 @@ public:
             return g_defaultLogPath;
         }
 
+        if (g_logPathCallback)
+        {
+            return g_logPathCallback();
+        }
+
+        const std::string appName = m_config.logName.empty() ? "SanYiCAD" : m_config.logName;
+
 #ifdef _WIN32
         wchar_t* path = nullptr;
         if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, NULL, &path)))
@@ -186,14 +194,14 @@ public:
             std::string result(size - 1, 0);
             WideCharToMultiByte(CP_UTF8, 0, path, -1, &result[0], size, nullptr, nullptr);
             CoTaskMemFree(path);
-            return result + "\\" + m_config.logName + "\\logs";
+            return result + "\\" + appName + "\\logs";
         }
         return ".\\logs";
 #else
         const char* home = getenv("HOME");
         if (home)
         {
-            return std::string(home) + "/.local/share/" + m_config.logName + "/logs";
+            return std::string(home) + "/.local/share/" + appName + "/logs";
         }
         return "./logs";
 #endif
@@ -374,7 +382,7 @@ void SyLogger::Initialize(const SyLogConfig& config)
 void SyLogger::Initialize(const char* logName, SyLogLevel level, bool consoleEnable, bool fileEnable)
 {
     SyLogConfig config;
-    config.logName = logName ? logName : "SanYi";
+    config.logName = logName ? logName : "SanYiCAD";
     config.level = level;
     config.consoleEnable = consoleEnable;
     config.fileEnable = fileEnable;
@@ -436,6 +444,11 @@ const char* SyLogger::GetDefaultLogPath()
     static std::string cachedPath;
     cachedPath = g_defaultLogPath;
     return cachedPath.c_str();
+}
+
+void SyLogger::SetLogPathCallback(LogPathCallback callback)
+{
+    g_logPathCallback = std::move(callback);
 }
 
 // ==================== 清理过期日志 ====================
@@ -550,64 +563,6 @@ void SyLogger::LogFSrc(SyLogLevel level, const char* file, int line, const char*
     else
         logger->log(spdLevel, formatted);
 }
-
-// ==================== C API ====================
-extern "C" {
-    void SyLog_Init(const char* logName, int level, bool console, bool file)
-    {
-        SyLogConfig config;
-        config.logName = logName ? logName : "SanYi";
-        config.level = static_cast<SyLogLevel>(level);
-        config.consoleEnable = console;
-        config.fileEnable = file;
-        SyLogger::GetInstance().Initialize(config);
-    }
-
-    void SyLog_Shutdown()
-    {
-        SyLogger::GetInstance().Shutdown();
-    }
-
-    void SyLog_SetLevel(int level)
-    {
-        SyLogger::GetInstance().SetLevel(static_cast<SyLogLevel>(level));
-    }
-
-    void SyLog_SetEnabled(bool enabled)
-    {
-        SyLogger::GetInstance().SetEnabled(enabled);
-    }
-
-    void SyLog_Trace(const char* msg)
-    {
-        SyLogger::GetInstance().TraceStr(msg ? msg : "");
-    }
-
-    void SyLog_Debug(const char* msg)
-    {
-        SyLogger::GetInstance().DebugStr(msg ? msg : "");
-    }
-
-    void SyLog_Info(const char* msg)
-    {
-        SyLogger::GetInstance().InfoStr(msg ? msg : "");
-    }
-
-    void SyLog_Warn(const char* msg)
-    {
-        SyLogger::GetInstance().WarnStr(msg ? msg : "");
-    }
-
-    void SyLog_Error(const char* msg)
-    {
-        SyLogger::GetInstance().ErrorStr(msg ? msg : "");
-    }
-
-    void SyLog_Critical(const char* msg)
-    {
-        SyLogger::GetInstance().CriticalStr(msg ? msg : "");
-    }
-} // extern "C"
 
 void SyLogger::Initialize(const std::string& logName, SyLogLevel level, bool consoleEnable, bool fileEnable)
 {

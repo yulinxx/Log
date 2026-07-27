@@ -3,6 +3,7 @@
 #include "LogAPI.h"
 #include <string>
 #include <memory>
+#include <functional>
 
 enum class SyLogLevel
 {
@@ -17,7 +18,7 @@ enum class SyLogLevel
 
 struct SyLogConfigInternal
 {
-    std::string logName = "SanYi";
+    std::string logName = "";
     std::string logPath = "";
     SyLogLevel level = SyLogLevel::Debug;
     bool consoleEnable = true;
@@ -37,7 +38,7 @@ struct SyLogConfigInternal
 
 struct LOG_API SyLogConfig
 {
-    const char* logName = "SanYi";
+    const char* logName = "";
     const char* logPath = "";
     SyLogLevel level = SyLogLevel::Debug;
     bool consoleEnable = true;
@@ -82,7 +83,7 @@ public:
     static SyLogger& GetInstance();
 
     void Initialize(const SyLogConfig& config);
-    void Initialize(const char* logName = "SanYi",
+    void Initialize(const char* logName = "",
         SyLogLevel level = SyLogLevel::Debug,
         bool consoleEnable = true,
         bool fileEnable = true);
@@ -101,6 +102,9 @@ public:
 
     void CleanOldLogs();
     const char* GetLogDirectory() const;
+
+    using LogPathCallback = std::function<std::string()>;
+    static void SetLogPathCallback(LogPathCallback callback);
 
     static void SetDefaultLogPath(const char* path);
     static const char* GetDefaultLogPath();
@@ -148,17 +152,3 @@ private:
 #define SY_WARNF(...)     SyLogger::GetInstance().LogFSrc(SyLogLevel::Warn, __FILE__, __LINE__, __VA_ARGS__)
 #define SY_ERRORF(...)    SyLogger::GetInstance().LogFSrc(SyLogLevel::Error, __FILE__, __LINE__, __VA_ARGS__)
 #define SY_CRITICALF(...) SyLogger::GetInstance().LogFSrc(SyLogLevel::Critical, __FILE__, __LINE__, __VA_ARGS__)
-
-extern "C" {
-    LOG_API void SyLog_Init(const char* logName, int level, bool console, bool file);
-    LOG_API void SyLog_Shutdown();
-    LOG_API void SyLog_SetLevel(int level);
-    LOG_API void SyLog_SetEnabled(bool enabled);
-
-    LOG_API void SyLog_Trace(const char* msg);
-    LOG_API void SyLog_Debug(const char* msg);
-    LOG_API void SyLog_Info(const char* msg);
-    LOG_API void SyLog_Warn(const char* msg);
-    LOG_API void SyLog_Error(const char* msg);
-    LOG_API void SyLog_Critical(const char* msg);
-}
