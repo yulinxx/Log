@@ -51,6 +51,12 @@ target_include_directories(${LIB_NAME}
 
 target_compile_features(${LIB_NAME} PUBLIC cxx_std_17)
 
+# --- 目标属性 ---
+set_target_properties(${LIB_NAME} PROPERTIES
+    FOLDER "${LIB_FOLDER}"
+    DEBUG_POSTFIX "_d"
+)
+
 target_link_libraries(${LIB_NAME}
     PRIVATE
         spdlog::spdlog

@@ -77,6 +77,8 @@ struct LOG_API SyLogConfig
 
 class SyLoggerImpl;
 
+// pImpl：使用原始指针而非 std::unique_ptr，避免 MSVC C4251（导出类中的
+// std::unique_ptr<前置声明类型> 模板实例无法跨 DLL 边界安全销毁）
 class LOG_API SyLogger
 {
 public:
@@ -105,7 +107,6 @@ public:
 
     using LogPathCallback = std::function<std::string()>;
     static void SetLogPathCallback(LogPathCallback callback);
-
     static void SetDefaultLogPath(const char* path);
     static const char* GetDefaultLogPath();
 
@@ -136,7 +137,7 @@ private:
     SyLogger(const SyLogger&) = delete;
     SyLogger& operator=(const SyLogger&) = delete;
 
-    std::unique_ptr<SyLoggerImpl> m_impl = std::make_unique<SyLoggerImpl>();
+    SyLoggerImpl* m_impl;
 };
 
 #define SY_TRACE(msg)    SyLogger::GetInstance().LogSrc(SyLogLevel::Trace, __FILE__, __LINE__, msg)

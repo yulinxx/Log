@@ -174,6 +174,13 @@ public:
 
     std::string GetDefaultLogPath()
     {
+        if (g_logPathCallback)
+        {
+            std::string path = g_logPathCallback();
+            if (!path.empty())
+                return path;
+        }
+
         if (!g_defaultLogPath.empty())
         {
             return g_defaultLogPath;
@@ -279,10 +286,14 @@ SyLogger& SyLogger::GetInstance()
     return instance;
 }
 
-SyLogger::SyLogger() = default;
+SyLogger::SyLogger() : m_impl(new SyLoggerImpl())
+{
+}
 SyLogger::~SyLogger()
 {
     Shutdown();
+    delete m_impl;
+    m_impl = nullptr;
 }
 
 // ==================== 初始化 ====================
@@ -434,6 +445,11 @@ const char* SyLogger::GetLogDirectory() const
     return cachedPath.c_str();
 }
 
+void SyLogger::SetLogPathCallback(LogPathCallback callback)
+{
+    g_logPathCallback = std::move(callback);
+}
+
 void SyLogger::SetDefaultLogPath(const char* path)
 {
     g_defaultLogPath = path ? path : "";
@@ -444,11 +460,6 @@ const char* SyLogger::GetDefaultLogPath()
     static std::string cachedPath;
     cachedPath = g_defaultLogPath;
     return cachedPath.c_str();
-}
-
-void SyLogger::SetLogPathCallback(LogPathCallback callback)
-{
-    g_logPathCallback = std::move(callback);
 }
 
 // ==================== 清理过期日志 ====================
