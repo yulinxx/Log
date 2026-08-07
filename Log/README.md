@@ -228,17 +228,20 @@ enum class SyLogLevel
 ```cpp
 namespace SyTrace
 {
-    LOG_API void pushTraceId(const std::string& traceId);
+    LOG_API void pushTraceId(const char* traceId);
     LOG_API void popTraceId();
-    LOG_API std::string currentTraceId();
-    LOG_API std::string resolveTraceId(const std::string& explicitId = {});
+    LOG_API size_t currentTraceId(char* buffer, size_t bufferSize);
+    LOG_API size_t resolveTraceId(const char* explicitId, char* buffer, size_t bufferSize);
+    inline std::string currentTraceIdString();
+    inline std::string resolveTraceIdString(const char* explicitId = nullptr);
     inline constexpr const char* kTraceHeaderName = "X-Trace-Id";
 }
 ```
 
-- `pushTraceId` / `popTraceId`：操作 traceId 栈
-- `currentTraceId`：获取栈顶 traceId
+- `pushTraceId` / `popTraceId`：操作 traceId 栈（`const char*`，DLL 内拷贝）
+- `currentTraceId`：拷贝栈顶 traceId 到调用方缓冲区，返回写入长度（ABI 安全）
 - `resolveTraceId`：优先使用显式 ID，否则回退到当前栈顶
+- `currentTraceIdString` / `resolveTraceIdString`：header 内联便捷包装，编译进调用方，不跨 DLL 边界
 - `kTraceHeaderName`：HTTP 头名称，供 Network 模块统一使用
 
 ### 两层结构分离
@@ -379,7 +382,6 @@ option(BUILD_LOG_EXAMPLE "Build Log usage example" ON)
 | `static SyLogger& GetInstance()` | 获取单例实例 |
 | `void Initialize(const SyLogConfig& config)` | 使用配置结构体初始化 |
 | `void Initialize(const char* logName, SyLogLevel level, bool console, bool file)` | 使用简化参数初始化 |
-| `void Initialize(const std::string& logName, ...)` | 使用 std::string 初始化 |
 | `void Shutdown()` | 关闭日志系统，刷新缓冲区 |
 
 #### 级别控制
@@ -422,6 +424,7 @@ option(BUILD_LOG_EXAMPLE "Build Log usage example" ON)
 |------|------|
 | `void CleanOldLogs()` | 手动清理过期日志文件 |
 | `const char* GetLogDirectory() const` | 获取当前日志目录路径 |
+| `static void SetLogPathCallback(LogPathCallback cb, void* ctx)` | 设置日志目录回调（C 函数指针 + ctx，避免跨 DLL std::function） |
 | `static void SetDefaultLogPath(const char* path)` | 设置全局默认日志路径 |
 | `static const char* GetDefaultLogPath()` | 获取全局默认日志路径 |
 
@@ -509,10 +512,13 @@ SY_CRITICALF(...)
 ### SyTrace 命名空间 API
 
 ```cpp
-void pushTraceId(const std::string& traceId);
+void pushTraceId(const char* traceId);
 void popTraceId();
-std::string currentTraceId();
-std::string resolveTraceId(const std::string& explicitId = {});
+size_t currentTraceId(char* buffer, size_t bufferSize);
+size_t resolveTraceId(const char* explicitId, char* buffer, size_t bufferSize);
+// 便捷包装（header 内联，编译进调用方，不跨 DLL 边界）
+std::string currentTraceIdString();
+std::string resolveTraceIdString(const char* explicitId = nullptr);
 ```
 
 ---

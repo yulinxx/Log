@@ -1,5 +1,6 @@
 #include "Log/SyTraceContext.h"
 
+#include <cstring>
 #include <vector>
 
 namespace SyTrace
@@ -9,11 +10,11 @@ namespace SyTrace
         thread_local std::vector<std::string> g_traceStack;
     }
 
-    void pushTraceId(const std::string& traceId)
+    void pushTraceId(const char* traceId)
     {
-        if (traceId.empty())
+        if (!traceId || !*traceId)
             return;
-        g_traceStack.push_back(traceId);
+        g_traceStack.emplace_back(traceId);
     }
 
     void popTraceId()
@@ -22,15 +23,33 @@ namespace SyTrace
             g_traceStack.pop_back();
     }
 
-    std::string currentTraceId()
+    size_t currentTraceId(char* buffer, size_t bufferSize)
     {
-        return g_traceStack.empty() ? std::string{} : g_traceStack.back();
+        if (!buffer || bufferSize == 0)
+            return 0;
+        if (g_traceStack.empty())
+        {
+            buffer[0] = '\0';
+            return 0;
+        }
+
+        const std::string& id = g_traceStack.back();
+        const size_t copyLen = (id.size() < bufferSize) ? id.size() : bufferSize - 1;
+        std::memcpy(buffer, id.data(), copyLen);
+        buffer[copyLen] = '\0';
+        return copyLen;
     }
 
-    std::string resolveTraceId(const std::string& explicitId)
+    size_t resolveTraceId(const char* explicitId, char* buffer, size_t bufferSize)
     {
-        if (!explicitId.empty())
-            return explicitId;
-        return currentTraceId();
+        if (explicitId && *explicitId)
+        {
+            const size_t len = std::strlen(explicitId);
+            const size_t copyLen = (len < bufferSize) ? len : bufferSize - 1;
+            std::memcpy(buffer, explicitId, copyLen);
+            buffer[copyLen] = '\0';
+            return copyLen;
+        }
+        return currentTraceId(buffer, bufferSize);
     }
 } // namespace SyTrace

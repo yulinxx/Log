@@ -215,6 +215,7 @@ void CleanOldLogs();                    // 手动清理过期日志
 const char* GetLogDirectory() const;    // 获取当前日志目录路径
 
 // 全局默认路径设置
+static void SetLogPathCallback(LogPathCallback cb, void* ctx);  // 设置日志目录回调（C 函数指针 + ctx）
 static void SetDefaultLogPath(const char* path);  // 设置全局默认日志路径
 static const char* GetDefaultLogPath();           // 获取全局默认日志路径
 ```

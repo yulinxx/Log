@@ -20,6 +20,19 @@
 
 namespace fs = std::filesystem;
 
+constexpr uint32_t kSyLogVersion = 0x010000;
+constexpr const char* kSyLogVersionString = "1.0.0";
+
+extern "C" LOG_API uint32_t SyLog_GetVersion(void)
+{
+    return kSyLogVersion;
+}
+
+extern "C" LOG_API const char* SyLog_GetVersionString(void)
+{
+    return kSyLogVersionString;
+}
+
 static std::string pathToUtf8(const fs::path& p)
 {
 #ifdef _WIN32
@@ -38,7 +51,8 @@ static std::string pathToUtf8(const fs::path& p)
 }
 
 static std::string g_defaultLogPath;
-static SyLogger::LogPathCallback g_logPathCallback;
+static SyLogger::LogPathCallback g_logPathCallback = nullptr;
+static void* g_logPathCallbackCtx = nullptr;
 
 // ==================== 日志速率限制器 ====================
 class LogRateLimiter
@@ -176,19 +190,14 @@ public:
     {
         if (g_logPathCallback)
         {
-            std::string path = g_logPathCallback();
-            if (!path.empty())
-                return path;
+            const char* path = g_logPathCallback(g_logPathCallbackCtx);
+            if (path && *path)
+                return std::string(path);
         }
 
         if (!g_defaultLogPath.empty())
         {
             return g_defaultLogPath;
-        }
-
-        if (g_logPathCallback)
-        {
-            return g_logPathCallback();
         }
 
         const std::string appName = m_config.logName.empty() ? "SanYiCAD" : m_config.logName;
@@ -445,9 +454,10 @@ const char* SyLogger::GetLogDirectory() const
     return cachedPath.c_str();
 }
 
-void SyLogger::SetLogPathCallback(LogPathCallback callback)
+void SyLogger::SetLogPathCallback(LogPathCallback callback, void* ctx)
 {
-    g_logPathCallback = std::move(callback);
+    g_logPathCallback = callback;
+    g_logPathCallbackCtx = ctx;
 }
 
 void SyLogger::SetDefaultLogPath(const char* path)
@@ -573,9 +583,4 @@ void SyLogger::LogFSrc(SyLogLevel level, const char* file, int line, const char*
         logger->log(spdlog::source_loc{ file, line, "" }, spdLevel, formatted);
     else
         logger->log(spdLevel, formatted);
-}
-
-void SyLogger::Initialize(const std::string& logName, SyLogLevel level, bool consoleEnable, bool fileEnable)
-{
-    Initialize(logName.c_str(), level, consoleEnable, fileEnable);
 }

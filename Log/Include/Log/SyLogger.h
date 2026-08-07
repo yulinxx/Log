@@ -3,7 +3,6 @@
 #include "LogAPI.h"
 #include <string>
 #include <memory>
-#include <functional>
 
 enum class SyLogLevel
 {
@@ -15,6 +14,11 @@ enum class SyLogLevel
     Critical = 5,
     Off = 6
 };
+
+// DLL 版本查询：用于启动时检查 Log.dll 与调用方是否匹配
+// 声明为 C 链接（extern "C"），与 SyLogger.cpp 中的定义保持一致
+extern "C" LOG_API uint32_t SyLog_GetVersion(void);
+extern "C" LOG_API const char* SyLog_GetVersionString(void);
 
 struct SyLogConfigInternal
 {
@@ -89,10 +93,6 @@ public:
         SyLogLevel level = SyLogLevel::Debug,
         bool consoleEnable = true,
         bool fileEnable = true);
-    void Initialize(const std::string& logName,
-        SyLogLevel level = SyLogLevel::Debug,
-        bool consoleEnable = true,
-        bool fileEnable = true);
 
     void Shutdown();
 
@@ -105,8 +105,9 @@ public:
     void CleanOldLogs();
     const char* GetLogDirectory() const;
 
-    using LogPathCallback = std::function<std::string()>;
-    static void SetLogPathCallback(LogPathCallback callback);
+    // 日志目录回调：C 函数指针 + void* ctx（避免 std::function 跨 DLL 传递）
+    using LogPathCallback = const char* (*)(void* ctx);
+    static void SetLogPathCallback(LogPathCallback callback, void* ctx = nullptr);
     static void SetDefaultLogPath(const char* path);
     static const char* GetDefaultLogPath();
 

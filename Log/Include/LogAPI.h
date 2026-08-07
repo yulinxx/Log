@@ -1,5 +1,4 @@
-#ifndef LOG_API_H
-#define LOG_API_H
+#pragma once
 
 // Windows
 #if defined(_WIN32) || defined(_WIN64)
@@ -25,5 +24,3 @@
 #else
 #define LOG_API
 #endif
-
-#endif // LOG_API_H

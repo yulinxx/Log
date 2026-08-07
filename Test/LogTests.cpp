@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "LogAPI.h"
 #include "Log/SyLogger.h"
+#include "Log/SyTraceContext.h"
 
 #include <string>
 #include <fstream>
@@ -511,6 +512,52 @@ TEST(SyLoggerIntegrationTest, CompleteWorkflow)
     
     // 测试应该完成而不崩溃
     EXPECT_TRUE(true);
+}
+
+// ==================== TraceContext ABI 测试 ====================
+
+TEST(SyTraceContextTest, EmptyStack)
+{
+    SyTrace::popTraceId();
+    char buffer[128];
+    const size_t len = SyTrace::currentTraceId(buffer, sizeof(buffer));
+    EXPECT_EQ(len, 0u);
+    EXPECT_STREQ(buffer, "");
+    EXPECT_TRUE(SyTrace::currentTraceIdString().empty());
+}
+
+TEST(SyTraceContextTest, PushPop)
+{
+    SyTrace::pushTraceId("trace-1");
+    EXPECT_EQ(SyTrace::currentTraceIdString(), "trace-1");
+    SyTrace::pushTraceId("trace-2");
+    EXPECT_EQ(SyTrace::currentTraceIdString(), "trace-2");
+    SyTrace::popTraceId();
+    EXPECT_EQ(SyTrace::currentTraceIdString(), "trace-1");
+    SyTrace::popTraceId();
+    EXPECT_TRUE(SyTrace::currentTraceIdString().empty());
+}
+
+TEST(SyTraceContextTest, ResolveTraceId)
+{
+    char buffer[128];
+    // explicitId 优先
+    const size_t len = SyTrace::resolveTraceId("explicit-id", buffer, sizeof(buffer));
+    EXPECT_EQ(len, 11u);
+    EXPECT_STREQ(buffer, "explicit-id");
+    // null/空串回退
+    EXPECT_STREQ(SyTrace::resolveTraceIdString(nullptr).c_str(), "");
+    SyTrace::pushTraceId("stack-id");
+    EXPECT_EQ(SyTrace::resolveTraceIdString(nullptr), "stack-id");
+    EXPECT_EQ(SyTrace::resolveTraceIdString(""), "stack-id");
+    SyTrace::popTraceId();
+}
+
+TEST(SyTraceContextTest, PushIgnoresEmpty)
+{
+    SyTrace::pushTraceId("");
+    SyTrace::pushTraceId(nullptr);
+    EXPECT_TRUE(SyTrace::currentTraceIdString().empty());
 }
 
 // ==================== 主测试入口 ====================
