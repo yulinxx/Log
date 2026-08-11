@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 4.3)
 
-include(../Config.txt)
+include(../Config.cmake)
 
 project(SanYiLog
     VERSION 1.0.0
