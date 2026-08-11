@@ -14,13 +14,6 @@
 #else
 #define LOG_API
 #endif
-// MacOS
-#elif defined(__APPLE__)
-#ifdef LOG_EXPORTS
-#define LOG_API __attribute__((visibility("default")))
-#else
-#define LOG_API
-#endif
 #else
 #define LOG_API
 #endif
