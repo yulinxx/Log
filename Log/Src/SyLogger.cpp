@@ -183,6 +183,20 @@ public:
     mutable std::mutex m_mutex;
     std::unique_ptr<LogRateLimiter> m_rateLimiter;
 
+    // 轻量析构：仅在未显式 Shutdown() 的异常退出路径兜底释放 logger。
+    // 不调用 spdlog::shutdown()/drop 与 logger->flush() —— 前者访问 registry
+    // 全局静态对象（进程静态销毁阶段访问可能触发 terminate），后者 async 路径
+    // 会向 thread_pool 投递（若线程池已先析构则落入 error handler）。
+    // 仅 reset() 让 async_logger 析构：它不访问 registry，只释放自身成员，
+    // 文件 sink 析构时自行 flush 关闭文件，全程不碰 spdlog 静态对象，安全。
+    ~SyLoggerImpl()
+    {
+        if (m_logger && m_bInitialized)
+        {
+            m_logger.reset();
+        }
+    }
+
     static bool s_threadPoolInitialized;
     static std::mutex s_tpMutex;
 
@@ -300,7 +314,12 @@ SyLogger::SyLogger() : m_impl(new SyLoggerImpl())
 }
 SyLogger::~SyLogger()
 {
-    Shutdown();
+    // 注意：此处不能调用 Shutdown()。
+    // Shutdown() 内部会访问 spdlog 的全局静态对象（registry / thread pool），
+    // 而单例析构发生在进程静态对象销毁阶段（exit() -> __cxa_finalize），
+    // 此时 spdlog 内部的静态对象可能已被先销毁，访问其 mutex 会触发
+    // “mutex lock failed: Invalid argument” 并导致 std::terminate。
+    // 真正的关闭流程由 AppInitializer::shutdown() 显式调用 Shutdown() 完成。
     delete m_impl;
     m_impl = nullptr;
 }

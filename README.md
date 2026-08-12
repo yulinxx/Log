@@ -510,6 +510,48 @@ if (SyLogger::GetInstance().IsEnabled()) {
 }
 ```
 
+## 生命周期与析构安全
+
+SyLogger 采用 **PIMPL + 函数局部静态单例** 实现，`m_impl` 的分配与释放均发生在 Log DLL 内部（同 CRT 规则，跨 DLL 安全）。
+
+### 析构顺序与安全性
+
+```
+进程退出
+ └─ AppInitializer::shutdown()        → SyLogger::Shutdown()
+     └─ m_logger->flush()             刷新剩余缓冲
+     └─ spdlog::drop(name)           从 registry 移除该 logger
+     └─ m_logger.reset()              置空 shared_ptr（关键）
+     └─ spdlog::shutdown()            干净地 join 异步线程池
+ └─ 单例静态析构（__cxa_finalize 阶段）
+     └─ ~SyLogger() → delete m_impl → ~SyLoggerImpl()
+         └─ 此时 m_logger 已为空，仅释放 m_config 等普通成员，安全
+```
+
+- **正常路径**：`Shutdown()` 先将 `m_logger` 置空并 `spdlog::shutdown()`，静态析构阶段 `~SyLoggerImpl` 不再触碰任何 spdlog 对象，绝无 `mutex lock failed` 风险。
+- **异常退出路径**（未显式调用 `Shutdown()`）：`~SyLoggerImpl` 只执行 `m_logger.reset()`，让 `async_logger`/文件 sink 析构自行 flush 关闭文件。
+
+### `~SyLoggerImpl` 的兜底析构为何不直接调用 `spdlog::shutdown()`
+
+进程静态销毁（`__cxa_finalize`）阶段访问 spdlog 的全局静态 registry / 线程池对象可能触发 `terminate`。因此兜底析构遵循三条安全边界：
+
+1. **不调 `spdlog::shutdown()` / `spdlog::drop()`** —— 二者访问 registry 全局静态对象。
+2. **不调 `m_logger->flush()`** —— async logger 的 flush 会向 `details::thread_pool` 投递，若线程池已先于本 DLL 析构，则落入 error handler 且无意义。
+3. **仅 `m_logger.reset()`** —— `async_logger` 析构只释放自身成员（`sinks_`、`thread_pool_` 为 weak_ptr 仅减引用计数），不访问任何 spdlog 静态对象；文件 sink 析构自带 flush 关闭文件。
+
+### DLL 导出标准符合性
+
+| 标准要求 | 本库实现 |
+|----------|----------|
+| 成员分配与释放必须在同一 DLL | `m_impl` 由 Log DLL 内 `new`/`delete` 配对 |
+| 单例析构逻辑应唯一定义于 `.cpp` | `~SyLogger` 位于 `SyLogger.cpp`，不在头文件 |
+| 析构不应访问跨 DLL 共享的静态对象 | 兜底析构不触碰 spdlog registry / 线程池 |
+
+### 最佳实践
+
+- **务必**在正常退出路径显式调用 `SyLogger::Shutdown()`（推荐由 `AppInitializer::shutdown()` 统一管理），以触发 `spdlog::shutdown()` 干净地 join 异步线程，避免丢日志。
+- 单例是函数局部静态变量，第一次 `GetInstance()` 时构造；勿在全局/静态对象构造期间（早于 main）使用日志宏。
+
 ## 技术规格
 
 - **C++ 标准**：C++17 或更高
