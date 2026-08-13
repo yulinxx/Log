@@ -56,4 +56,4 @@ namespace SyTrace
 
     /** @brief HTTP 头名称，供 Network 模块统一使用 */
     inline constexpr const char* kTraceHeaderName = "X-Trace-Id";
-} // namespace SyTrace
+}  // namespace SyTrace

@@ -23,25 +23,25 @@
 #include <cstdio>
 
 #ifndef SY_PERF_ENABLED
-#ifdef NDEBUG
-#define SY_PERF_ENABLED 0
-#else
-#define SY_PERF_ENABLED 1
-#endif
+    #ifdef NDEBUG
+        #define SY_PERF_ENABLED 0
+    #else
+        #define SY_PERF_ENABLED 1
+    #endif
 #endif
 
- // ============================================================================
- // 性能统计数据结构（POD，跨 DLL 安全）
- // ============================================================================
+// ============================================================================
+// 性能统计数据结构（POD，跨 DLL 安全）
+// ============================================================================
 
 struct PerfStats
 {
-    const char* name;               // 统计项名称
-    uint64_t    callCount;          // 调用次数
-    double      totalMs;            // 累计耗时 (ms)
-    double      minMs;              // 最短耗时 (ms)
-    double      maxMs;              // 最长耗时 (ms)
-    double      avgMs;              // 平均耗时 (ms)
+    const char* name;    // 统计项名称
+    uint64_t callCount;  // 调用次数
+    double totalMs;      // 累计耗时 (ms)
+    double minMs;        // 最短耗时 (ms)
+    double maxMs;        // 最长耗时 (ms)
+    double avgMs;        // 平均耗时 (ms)
 };
 
 // ============================================================================
@@ -74,8 +74,14 @@ public:
 
         ++m_frameCount;
         m_totalMs += ms;
-        if (ms < m_minMs) m_minMs = ms;
-        if (ms > m_maxMs) m_maxMs = ms;
+        if (ms < m_minMs)
+        {
+            m_minMs = ms;
+        }
+        if (ms > m_maxMs)
+        {
+            m_maxMs = ms;
+        }
 
         // 每 300 帧自动上报一次
         if (m_frameCount - m_lastReportFrame >= 300)
@@ -108,13 +114,18 @@ public:
     void report()
     {
         if (m_frameCount == 0)
+        {
             return;
+        }
 
         char buf[256];
-        snprintf(buf, sizeof(buf),
+        snprintf(buf,
+            sizeof(buf),
             "[FrameTimer] frames=%llu avg=%.2fms min=%.2fms max=%.2fms",
             static_cast<unsigned long long>(m_frameCount),
-            avgFrameMs(), m_minMs, m_maxMs);
+            avgFrameMs(),
+            m_minMs,
+            m_maxMs);
         SyLogger::GetInstance().InfoStr(buf);
     }
 
@@ -131,9 +142,9 @@ public:
 private:
     std::chrono::high_resolution_clock::time_point m_frameStart;
     uint64_t m_frameCount;
-    double   m_totalMs;
-    double   m_minMs;
-    double   m_maxMs;
+    double m_totalMs;
+    double m_minMs;
+    double m_maxMs;
     uint64_t m_lastReportFrame;
 };
 
@@ -164,8 +175,14 @@ public:
         {
             ++m_stats->callCount;
             m_stats->totalMs += ms;
-            if (ms < m_stats->minMs || m_stats->callCount == 1) m_stats->minMs = ms;
-            if (ms > m_stats->maxMs) m_stats->maxMs = ms;
+            if (ms < m_stats->minMs || m_stats->callCount == 1)
+            {
+                m_stats->minMs = ms;
+            }
+            if (ms > m_stats->maxMs)
+            {
+                m_stats->maxMs = ms;
+            }
             m_stats->avgMs = m_stats->totalMs / m_stats->callCount;
         }
 
@@ -189,28 +206,24 @@ private:
     static void reportSlow(const char* msg);
 };
 
-/// 便捷宏：统计指定代码块的耗时
-#define SY_PERF_SCOPE(name) \
-    ScopedPerfTimer _sy_perf_timer_##__LINE__(name)
+    /// 便捷宏：统计指定代码块的耗时
+    #define SY_PERF_SCOPE(name) ScopedPerfTimer _sy_perf_timer_##__LINE__(name)
 
-/// 便捷宏：统计指定代码块的耗时并写入累计统计
-#define SY_PERF_SCOPE_STATS(name, statsPtr) \
-    ScopedPerfTimer _sy_perf_timer_##__LINE__(name, statsPtr)
+    /// 便捷宏：统计指定代码块的耗时并写入累计统计
+    #define SY_PERF_SCOPE_STATS(name, statsPtr) ScopedPerfTimer _sy_perf_timer_##__LINE__(name, statsPtr)
 
-#else // !SY_PERF_ENABLED
+#else  // !SY_PERF_ENABLED
 
 class ScopedPerfTimer
 {
 public:
-    explicit ScopedPerfTimer(const char*, PerfStats* = nullptr)
-    {
-    }
+    explicit ScopedPerfTimer(const char*, PerfStats* = nullptr) {}
 };
 
-#define SY_PERF_SCOPE(name)              ((void)0)
-#define SY_PERF_SCOPE_STATS(name, stats) ((void)0)
+    #define SY_PERF_SCOPE(name)              ((void)0)
+    #define SY_PERF_SCOPE_STATS(name, stats) ((void)0)
 
-#endif // SY_PERF_ENABLED
+#endif  // SY_PERF_ENABLED
 
 // ============================================================================
 // 操作耗时宏（简化版，直接输出日志）
@@ -218,32 +231,40 @@ public:
 
 #if SY_PERF_ENABLED
 
-/// 测量一个代码块的耗时，超过阈值时输出 SY_WARNF
-/// 用法: SY_PERF_BLOCK("render", 16.0) { ... }
-#define SY_PERF_BLOCK(name, thresholdMs) \
-    for (struct { \
-        const char* _n; double _t; bool _done; \
-        std::chrono::high_resolution_clock::time_point _s; \
-        ~decltype(*this)() { \
-            if (_done) return; \
-            auto _e = std::chrono::high_resolution_clock::now(); \
-            double _ms = std::chrono::duration<double, std::milli>(_e - _s).count(); \
-            if (_ms > (_t)) { \
-                char _buf[256]; \
-                snprintf(_buf, sizeof(_buf), "[PERF] %s: %.2f ms (threshold %.1f ms)", _n, _ms, (_t)); \
-                SyLogger::GetInstance().WarnStr(_buf); \
-            } \
-        } \
-    } _sy_perf_block_##__LINE__{name, thresholdMs, false, std::chrono::high_resolution_clock::now()}; \
-         !_sy_perf_block_##__LINE__._done; \
-         _sy_perf_block_##__LINE__._done = true)
+    /// 测量一个代码块的耗时，超过阈值时输出 SY_WARNF
+    /// 用法: SY_PERF_BLOCK("render", 16.0) { ... }
+    #define SY_PERF_BLOCK(name, thresholdMs)                                                                     \
+        for (struct {                                                                                            \
+                 const char* _n;                                                                                 \
+                 double _t;                                                                                      \
+                 bool _done;                                                                                     \
+                 std::chrono::high_resolution_clock::time_point _s;                                              \
+                 ~decltype (*this)()                                                                             \
+                 {                                                                                               \
+                     if (_done)                                                                                  \
+                         return;                                                                                 \
+                     auto _e = std::chrono::high_resolution_clock::now();                                        \
+                     double _ms = std::chrono::duration<double, std::milli>(_e - _s).count();                    \
+                     if (_ms > (_t))                                                                             \
+                     {                                                                                           \
+                         char _buf[256];                                                                         \
+                         snprintf(_buf, sizeof(_buf), "[PERF] %s: %.2f ms (threshold %.1f ms)", _n, _ms, (_t));  \
+                         SyLogger::GetInstance().WarnStr(_buf);                                                  \
+                     }                                                                                           \
+                 }                                                                                               \
+             } _sy_perf_block_##__LINE__{ name, thresholdMs, false, std::chrono::high_resolution_clock::now() }; \
+            !_sy_perf_block_##__LINE__._done;                                                                    \
+            _sy_perf_block_##__LINE__._done = true)
 
 #else
 
-#define SY_PERF_BLOCK(name, thresholdMs) \
-    if (true) {} else
+    #define SY_PERF_BLOCK(name, thresholdMs) \
+        if (true)                            \
+        {                                    \
+        }                                    \
+        else
 
-#endif // SY_PERF_ENABLED
+#endif  // SY_PERF_ENABLED
 
 // ============================================================================
 // 性能统计上报辅助函数
@@ -256,9 +277,13 @@ public:
 /// @return 写入的字符数（不含 null 终止符）
 inline int perfStatsToString(char* buf, size_t size, const PerfStats& stats)
 {
-    return snprintf(buf, size,
+    return snprintf(buf,
+        size,
         "[%s] calls=%llu avg=%.2fms min=%.2fms max=%.2fms total=%.2fms",
         stats.name ? stats.name : "?",
         static_cast<unsigned long long>(stats.callCount),
-        stats.avgMs, stats.minMs, stats.maxMs, stats.totalMs);
+        stats.avgMs,
+        stats.minMs,
+        stats.maxMs,
+        stats.totalMs);
 }

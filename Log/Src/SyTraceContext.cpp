@@ -13,20 +13,26 @@ namespace SyTrace
     void pushTraceId(const char* traceId)
     {
         if (!traceId || !*traceId)
+        {
             return;
+        }
         g_traceStack.emplace_back(traceId);
     }
 
     void popTraceId()
     {
         if (!g_traceStack.empty())
+        {
             g_traceStack.pop_back();
+        }
     }
 
     size_t currentTraceId(char* buffer, size_t bufferSize)
     {
         if (!buffer || bufferSize == 0)
+        {
             return 0;
+        }
         if (g_traceStack.empty())
         {
             buffer[0] = '\0';
@@ -52,4 +58,4 @@ namespace SyTrace
         }
         return currentTraceId(buffer, bufferSize);
     }
-} // namespace SyTrace
+}  // namespace SyTrace

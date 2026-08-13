@@ -14,8 +14,8 @@
 #include <thread>
 
 #ifdef _WIN32
-#include <Windows.h>
-#include <ShlObj.h>
+    #include <Windows.h>
+    #include <ShlObj.h>
 #endif
 
 namespace fs = std::filesystem;
@@ -37,11 +37,15 @@ static std::string pathToUtf8(const fs::path& p)
 {
 #ifdef _WIN32
     if (p.empty())
+    {
         return {};
+    }
     const std::wstring w = p.native();
     int len = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
     if (len <= 0)
+    {
         return {};
+    }
     std::string s(len - 1, '\0');
     WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, s.data(), len, nullptr, nullptr);
     return s;
@@ -66,7 +70,9 @@ public:
     bool allow()
     {
         if (m_maxPerSec <= 0)
+        {
             return true;
+        }
 
         auto now = std::chrono::steady_clock::now();
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -91,9 +97,7 @@ template<typename Mutex>
 class LevelRangeSink : public spdlog::sinks::base_sink<Mutex>
 {
 public:
-    LevelRangeSink(spdlog::sink_ptr inner,
-        spdlog::level::level_enum minLevel,
-        spdlog::level::level_enum maxLevel)
+    LevelRangeSink(spdlog::sink_ptr inner, spdlog::level::level_enum minLevel, spdlog::level::level_enum maxLevel)
         : inner_(std::move(inner))
         , minLevel_(minLevel)
         , maxLevel_(maxLevel)
@@ -128,13 +132,20 @@ static spdlog::level::level_enum ToSpdlogLevel(SyLogLevel level)
 {
     switch (level)
     {
-        case SyLogLevel::Trace:    return spdlog::level::trace;
-        case SyLogLevel::Debug:    return spdlog::level::debug;
-        case SyLogLevel::Info:     return spdlog::level::info;
-        case SyLogLevel::Warn:     return spdlog::level::warn;
-        case SyLogLevel::Error:    return spdlog::level::err;
-        case SyLogLevel::Critical: return spdlog::level::critical;
-        default:                   return spdlog::level::off;
+    case SyLogLevel::Trace:
+        return spdlog::level::trace;
+    case SyLogLevel::Debug:
+        return spdlog::level::debug;
+    case SyLogLevel::Info:
+        return spdlog::level::info;
+    case SyLogLevel::Warn:
+        return spdlog::level::warn;
+    case SyLogLevel::Error:
+        return spdlog::level::err;
+    case SyLogLevel::Critical:
+        return spdlog::level::critical;
+    default:
+        return spdlog::level::off;
     }
 }
 
@@ -162,10 +173,14 @@ static std::string FormatString(const char* fmt, va_list args)
     va_end(args_copy);
 
     if (size < 0)
+    {
         return std::string(fmt);
+    }
 
     if (static_cast<size_t>(size) < sizeof(buf))
+    {
         return std::string(buf, static_cast<size_t>(size));
+    }
 
     std::string result(static_cast<size_t>(size), '\0');
     std::vsnprintf(result.data(), result.size() + 1, fmt, args);
@@ -206,7 +221,9 @@ public:
         {
             const char* path = g_logPathCallback(g_logPathCallbackCtx);
             if (path && *path)
+            {
                 return std::string(path);
+            }
         }
 
         if (!g_defaultLogPath.empty())
@@ -243,7 +260,9 @@ public:
         {
             fs::path logPath = fs::u8path(logDir);
             if (!fs::exists(logPath))
+            {
                 return;
+            }
 
             auto now = std::chrono::system_clock::now();
             auto maxAge = std::chrono::hours(24 * maxAgeDays);
@@ -251,16 +270,19 @@ public:
             for (const auto& entry : fs::directory_iterator(logPath))
             {
                 if (!entry.is_regular_file())
+                {
                     continue;
+                }
 
                 auto ext = entry.path().extension().string();
                 if (ext != ".log" && ext != ".txt")
+                {
                     continue;
+                }
 
                 auto fileTime = fs::last_write_time(entry);
                 auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-                    fileTime - fs::file_time_type::clock::now() + std::chrono::system_clock::now()
-                );
+                    fileTime - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
 
                 if (now - sctp > maxAge)
                 {
@@ -277,22 +299,30 @@ public:
     {
         m_config.level = level;
         if (m_logger)
+        {
             m_logger->set_level(ToSpdlogLevel(level));
+        }
     }
 
     void ApplyCleanOldLogs()
     {
         if (!m_config.fileEnable || m_config.logPath.empty())
+        {
             return;
+        }
         DoCleanOldLogs(m_config.logPath, m_config.maxAgeDays);
     }
 
     bool PrepareLogger(std::shared_ptr<spdlog::logger>& outLogger)
     {
         if (!m_enabled.load(std::memory_order_relaxed))
+        {
             return false;
+        }
         if (m_rateLimiter && !m_rateLimiter->allow())
+        {
             return false;
+        }
         std::lock_guard<std::mutex> lock(m_mutex);
         outLogger = m_logger;
         return outLogger != nullptr;
@@ -309,9 +339,11 @@ SyLogger& SyLogger::GetInstance()
     return instance;
 }
 
-SyLogger::SyLogger() : m_impl(new SyLoggerImpl())
+SyLogger::SyLogger()
+    : m_impl(new SyLoggerImpl())
 {
 }
+
 SyLogger::~SyLogger()
 {
     // 注意：此处不能调用 Shutdown()。
@@ -366,7 +398,11 @@ void SyLogger::Initialize(const SyLogConfig& config)
 
             if (config.splitErrorLog)
             {
-                AddRotatingFileSink(sinks, pathToUtf8(logDir / (logNameStr + ".error.log")), config.maxFileSize, config.maxFiles, spdlog::level::warn);
+                AddRotatingFileSink(sinks,
+                    pathToUtf8(logDir / (logNameStr + ".error.log")),
+                    config.maxFileSize,
+                    config.maxFiles,
+                    spdlog::level::warn);
             }
 
             if (config.splitDebugLog)
@@ -375,8 +411,8 @@ void SyLogger::Initialize(const SyLogConfig& config)
                     pathToUtf8(logDir / (logNameStr + ".debug.log")), config.maxFileSize, config.maxFiles);
                 debugInner->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] [%s:%#] %v");
                 debugInner->set_level(spdlog::level::trace);
-                auto debugSink = std::make_shared<LevelRangeSinkMt>(
-                    debugInner, spdlog::level::trace, spdlog::level::debug);
+                auto debugSink =
+                    std::make_shared<LevelRangeSinkMt>(debugInner, spdlog::level::trace, spdlog::level::debug);
                 sinks.push_back(debugSink);
             }
         }
@@ -392,9 +428,7 @@ void SyLogger::Initialize(const SyLogConfig& config)
         }
 
         m_impl->m_logger = std::make_shared<spdlog::async_logger>(
-            config.logName, sinks.begin(), sinks.end(),
-            spdlog::thread_pool(),
-            spdlog::async_overflow_policy::block);
+            config.logName, sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
 
         m_impl->ApplyLevel(config.level);
 
@@ -402,9 +436,7 @@ void SyLogger::Initialize(const SyLogConfig& config)
 
         spdlog::set_default_logger(m_impl->m_logger);
 
-        m_impl->m_rateLimiter = (config.rateLimit > 0)
-            ? std::make_unique<LogRateLimiter>(config.rateLimit)
-            : nullptr;
+        m_impl->m_rateLimiter = (config.rateLimit > 0) ? std::make_unique<LogRateLimiter>(config.rateLimit) : nullptr;
 
         m_impl->m_bInitialized = true;
         m_impl->m_enabled.store(true, std::memory_order_relaxed);
@@ -503,7 +535,9 @@ void SyLogger::TraceStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
+    {
         return;
+    }
     logger->log(spdlog::level::trace, msg ? msg : "");
 }
 
@@ -511,7 +545,9 @@ void SyLogger::DebugStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
+    {
         return;
+    }
     logger->log(spdlog::level::debug, msg ? msg : "");
 }
 
@@ -519,7 +555,9 @@ void SyLogger::InfoStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
+    {
         return;
+    }
     logger->log(spdlog::level::info, msg ? msg : "");
 }
 
@@ -527,7 +565,9 @@ void SyLogger::WarnStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
+    {
         return;
+    }
     logger->log(spdlog::level::warn, msg ? msg : "");
 }
 
@@ -535,7 +575,9 @@ void SyLogger::ErrorStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
+    {
         return;
+    }
     logger->log(spdlog::level::err, msg ? msg : "");
 }
 
@@ -543,25 +585,27 @@ void SyLogger::CriticalStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
+    {
         return;
+    }
     logger->log(spdlog::level::critical, msg ? msg : "");
 }
 
 // ==================== 格式化日志（向后兼容） ====================
-#define DEFINE_LEGACY_PRINTF_METHOD(name, spdLevel) \
-void SyLogger::name(const char* fmt, ...) \
-{ \
-    std::shared_ptr<spdlog::logger> logger; \
-    if (!m_impl->PrepareLogger(logger)) \
-        return; \
-    if (!logger->should_log(spdLevel)) \
-        return; \
-    va_list args; \
-    va_start(args, fmt); \
-    std::string formatted = FormatString(fmt, args); \
-    va_end(args); \
-    logger->log(spdLevel, formatted); \
-}
+#define DEFINE_LEGACY_PRINTF_METHOD(name, spdLevel)      \
+    void SyLogger::name(const char* fmt, ...)            \
+    {                                                    \
+        std::shared_ptr<spdlog::logger> logger;          \
+        if (!m_impl->PrepareLogger(logger))              \
+            return;                                      \
+        if (!logger->should_log(spdLevel))               \
+            return;                                      \
+        va_list args;                                    \
+        va_start(args, fmt);                             \
+        std::string formatted = FormatString(fmt, args); \
+        va_end(args);                                    \
+        logger->log(spdLevel, formatted);                \
+    }
 
 DEFINE_LEGACY_PRINTF_METHOD(TraceF, spdlog::level::trace)
 DEFINE_LEGACY_PRINTF_METHOD(DebugF, spdlog::level::debug)
@@ -575,14 +619,22 @@ void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const char* 
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
+    {
         return;
+    }
     auto spdLevel = ToSpdlogLevel(level);
     if (!logger->should_log(spdLevel))
+    {
         return;
+    }
     if (file)
+    {
         logger->log(spdlog::source_loc{ file, line, "" }, spdLevel, msg ? msg : "");
+    }
     else
+    {
         logger->log(spdLevel, msg ? msg : "");
+    }
 }
 
 // ==================== 带源位置的格式化日志（由宏使用） ====================
@@ -590,16 +642,24 @@ void SyLogger::LogFSrc(SyLogLevel level, const char* file, int line, const char*
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!m_impl->PrepareLogger(logger))
+    {
         return;
+    }
     auto spdLevel = ToSpdlogLevel(level);
     if (!logger->should_log(spdLevel))
+    {
         return;
+    }
     va_list args;
     va_start(args, fmt);
     std::string formatted = FormatString(fmt, args);
     va_end(args);
     if (file)
+    {
         logger->log(spdlog::source_loc{ file, line, "" }, spdLevel, formatted);
+    }
     else
+    {
         logger->log(spdLevel, formatted);
+    }
 }

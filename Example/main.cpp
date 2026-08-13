@@ -36,7 +36,6 @@ int main()
     // config.rateLimit   = 0;                        // 不限速
     // SyLogger::GetInstance().Initialize(config);
 
-
     // ==================== 2. 输出日志 ====================
 
     // --- 纯字符串日志（宏自动捕获源位置） ---
@@ -57,37 +56,37 @@ int main()
     SyLogger::GetInstance().InfoStr("Direct API call (no source location)");
     SyLogger::GetInstance().InfoF("Direct printf: %s = %d", "count", 42);
 
-
     // ==================== 3. 运行时控制 ====================
 
     // 动态调整级别
     SyLogger::GetInstance().SetLevel(SyLogLevel::Warn);
-    SY_INFO("This INFO will NOT appear (level now Warn)");      // 被过滤
-    SY_WARN("This WARN will appear");                            // 通过
+    SY_INFO("This INFO will NOT appear (level now Warn)");  // 被过滤
+    SY_WARN("This WARN will appear");                       // 通过
 
     // 动态启用/禁用
     SyLogger::GetInstance().SetEnabled(false);
-    SY_ERROR("This ERROR will NOT appear (logging disabled)");   // 被过滤
+    SY_ERROR("This ERROR will NOT appear (logging disabled)");  // 被过滤
     SyLogger::GetInstance().SetEnabled(true);
     SY_INFO("Logging re-enabled");
 
     // 恢复调试级别
     SyLogger::GetInstance().SetLevel(SyLogLevel::Trace);
 
-
     // ==================== 4. 多线程安全 ====================
 
-    std::thread t1([] { SY_INFO("Thread 1 is working"); });
-    std::thread t2([] { SY_INFO("Thread 2 is working"); });
+    std::thread t1([] {
+        SY_INFO("Thread 1 is working");
+    });
+    std::thread t2([] {
+        SY_INFO("Thread 2 is working");
+    });
     t1.join();
     t2.join();
-
 
     // ==================== 5. 查看日志目录 ====================
 
     std::string logDir = SyLogger::GetInstance().GetLogDirectory();
     SY_INFOF("Logs are stored at: %s", logDir.c_str());
-
 
     // ==================== 6. 关闭日志 ====================
 
