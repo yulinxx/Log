@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <chrono>
 #include <cstdarg>
+#include <cstdlib>
 #include <mutex>
 #include <atomic>
 #include <thread>
