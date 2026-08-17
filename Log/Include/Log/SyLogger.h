@@ -87,7 +87,10 @@ class LOG_API SyLogger
 {
 public:
     static SyLogger& GetInstance();
+    SyLogger(const SyLogger&) = delete;
+    SyLogger& operator=(const SyLogger&) = delete;
 
+public:
     void Initialize(const SyLogConfig& config);
     void Initialize(const char* logName = "",
         SyLogLevel level = SyLogLevel::Debug,
@@ -137,9 +140,8 @@ public:
 private:
     SyLogger();
     ~SyLogger();
-    SyLogger(const SyLogger&) = delete;
-    SyLogger& operator=(const SyLogger&) = delete;
 
+private:
     SyLoggerImpl* m_impl;
 };
 
