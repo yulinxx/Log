@@ -56,3 +56,10 @@ message(STATUS "  Version: ${PROJECT_VERSION}")
 message(STATUS "  Platform: ${CMAKE_SYSTEM_NAME}(${CMAKE_SYSTEM_PROCESSOR})")
 message(STATUS "  Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "----------------------------------------")
+
+sanyi_export_imported_target(${LIB_NAME}
+    LIB_NAME "${LIB_NAME}"
+    PUBLIC_INCLUDE_DIRS
+        "${CMAKE_CURRENT_SOURCE_DIR}/Include"
+    INTERFACE_LINK_LIBRARIES
+)
