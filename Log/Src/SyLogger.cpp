@@ -477,6 +477,19 @@ void SyLogger::Shutdown()
     SyLoggerImpl::s_threadPoolInitialized = false;
 }
 
+void SyLogger::Flush()
+{
+    // 不加锁：本函数的主要调用者是崩溃处理器，此时其他线程可能正持着 m_mutex
+    // 且永远不会再释放（比如崩在临界区里），加锁等于把崩溃现场变成死锁。
+    // spdlog 的 logger::flush() 自身是线程安全的，最坏情况是与并发写入交错，
+    // 而这远好过丢掉整段日志。
+    if (m_impl && m_impl->m_logger)
+    {
+        m_impl->m_logger->flush();
+    }
+}
+
+
 // ==================== 级别控制 ====================
 void SyLogger::SetLevel(SyLogLevel level)
 {

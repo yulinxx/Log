@@ -4,6 +4,34 @@
 #include <string>
 #include <memory>
 
+#if defined(_MSC_VER)
+#    include <sal.h>
+#endif
+
+// ---------------------------------------------------------------------------
+// printf 格式串校验宏
+//
+// *F 系列（LogFSrc / InfoF 等）是 C 可变参数，编译器默认不做任何检查，
+// 于是 "%d 打 int64_t"、"%s 传 std::string"、"%p 传 double*" 这类错误会一直
+// 潜伏到运行期（打出错误数据，32 位目标上还会错位后续实参）。
+//
+// GCC/Clang：__attribute__((format(printf, N, M)))，-Wformat 默认开启即生效。
+//            注意成员函数的隐式 this 计为第 1 个参数，所以索引要整体 +1。
+// MSVC：SAL 的 _Printf_format_string_，在 /analyze 静态分析下生效。
+// ---------------------------------------------------------------------------
+#if defined(__GNUC__) || defined(__clang__)
+#    define SYLOG_PRINTF_FMT(fmtIndex, firstArgIndex) __attribute__((format(printf, fmtIndex, firstArgIndex)))
+#else
+#    define SYLOG_PRINTF_FMT(fmtIndex, firstArgIndex)
+#endif
+
+#if defined(_MSC_VER)
+#    define SYLOG_FMT_STR _Printf_format_string_
+#else
+#    define SYLOG_FMT_STR
+#endif
+
+
 enum class SyLogLevel
 {
     Trace = 0,
@@ -99,6 +127,16 @@ public:
 
     void Shutdown();
 
+    /// 立刻把异步队列里的记录落盘。
+    ///
+    /// 日志走 spdlog async_logger + flush_on(warn)，硬崩溃时队列中尚未写出的记录
+    /// 会随进程一起消失 —— 这正是"出了问题却找不到日志"的头号来源。
+    /// 崩溃处理器、致命错误分支、以及任何"接下来可能就没有下一行日志了"的位置
+    /// 都应当先调一次本函数。
+    /// 可重入且对未初始化的 logger 安全（此时为空操作）。
+    void Flush();
+
+
     void SetLevel(SyLogLevel level);
     SyLogLevel GetLevel() const;
 
@@ -121,12 +159,12 @@ public:
     void ErrorStr(const char* msg);
     void CriticalStr(const char* msg);
 
-    void TraceF(const char* fmt, ...);
-    void DebugF(const char* fmt, ...);
-    void InfoF(const char* fmt, ...);
-    void WarnF(const char* fmt, ...);
-    void ErrorF(const char* fmt, ...);
-    void CriticalF(const char* fmt, ...);
+    void TraceF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
+    void DebugF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
+    void InfoF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
+    void WarnF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
+    void ErrorF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
+    void CriticalF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
 
     void LogSrc(SyLogLevel level, const char* file, int line, const char* msg);
 
@@ -135,7 +173,8 @@ public:
         LogSrc(level, file, line, msg.c_str());
     }
 
-    void LogFSrc(SyLogLevel level, const char* file, int line, const char* fmt, ...);
+    void LogFSrc(SyLogLevel level, const char* file, int line, SYLOG_FMT_STR const char* fmt, ...)
+        SYLOG_PRINTF_FMT(5, 6);
 
 private:
     SyLogger();
