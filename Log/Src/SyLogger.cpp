@@ -183,8 +183,12 @@ static std::string FormatString(const char* fmt, va_list args)
         return std::string(buf, static_cast<size_t>(size));
     }
 
+    // 超过栈缓冲：重新拷贝 va_list 做第二次格式化
+    // 注意：不能复用已被消费的原始 args，必须重新 va_copy
+    va_copy(args_copy, args);
     std::string result(static_cast<size_t>(size), '\0');
-    std::vsnprintf(result.data(), result.size() + 1, fmt, args);
+    std::vsnprintf(result.data(), result.size() + 1, fmt, args_copy);
+    va_end(args_copy);
     return result;
 }
 
@@ -465,6 +469,10 @@ void SyLogger::Initialize(const char* logName, SyLogLevel level, bool consoleEna
 void SyLogger::Shutdown()
 {
     std::lock_guard<std::mutex> lock(m_impl->m_mutex);
+    if (!m_impl->m_bInitialized)
+    {
+        return;  // 幂等：已关闭则直接返回，避免重复调用 spdlog::shutdown()
+    }
     if (m_impl->m_logger)
     {
         m_impl->m_logger->flush();
@@ -514,9 +522,9 @@ bool SyLogger::IsEnabled() const
 
 const char* SyLogger::GetLogDirectory() const
 {
-    static std::string cachedPath;
-    cachedPath = m_impl->m_config.logPath;
-    return cachedPath.c_str();
+    // 返回指向内部数据的指针：调用方应在锁外尽快拷贝。
+    // 不使用 static 局部变量——多线程并发写同一 static 是 data race。
+    return m_impl->m_config.logPath.c_str();
 }
 
 void SyLogger::SetLogPathCallback(LogPathCallback callback, void* ctx)
@@ -532,9 +540,8 @@ void SyLogger::SetDefaultLogPath(const char* path)
 
 const char* SyLogger::GetDefaultLogPath()
 {
-    static std::string cachedPath;
-    cachedPath = g_defaultLogPath;
-    return cachedPath.c_str();
+    // 返回指向全局变量的指针：调用方应在使用后尽快拷贝，不要长期持有。
+    return g_defaultLogPath.c_str();
 }
 
 // ==================== 清理过期日志 ====================

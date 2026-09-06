@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 // Windows
 #if defined(_WIN32) || defined(_WIN64)
     #ifdef LOG_EXPORTS

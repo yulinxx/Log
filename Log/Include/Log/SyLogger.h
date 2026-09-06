@@ -70,7 +70,7 @@ struct SyLogConfigInternal
 
 struct LOG_API SyLogConfig
 {
-    const char* logName = "";
+    const char* logName = "SanYiCAD";
     const char* logPath = "";
     SyLogLevel level = SyLogLevel::Debug;
     bool consoleEnable = true;

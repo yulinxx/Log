@@ -42,7 +42,7 @@ TEST(SyLogConfigTest, DefaultConfiguration)
 {
     SyLogConfig config;
 
-    EXPECT_STREQ(config.logName, "SanYi");
+    EXPECT_STREQ(config.logName, "SanYiCAD");
     EXPECT_STREQ(config.logPath, "");
     EXPECT_EQ(config.level, SyLogLevel::Debug);
     EXPECT_TRUE(config.consoleEnable);
