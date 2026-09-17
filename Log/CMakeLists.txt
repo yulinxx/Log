@@ -49,6 +49,7 @@ sanyi_add_shared_library(${LIB_NAME}
         "${CMAKE_CURRENT_SOURCE_DIR}/Include"
     LINK_LIBRARIES
         PRIVATE spdlog::spdlog
+        PUBLIC Utility
 )
 
 message(STATUS "[${LIB_NAME}]")
@@ -62,4 +63,5 @@ sanyi_export_imported_target(${LIB_NAME}
     PUBLIC_INCLUDE_DIRS
         "${CMAKE_CURRENT_SOURCE_DIR}/Include"
     INTERFACE_LINK_LIBRARIES
+        Utility::Utility
 )
