@@ -34,6 +34,7 @@ extern "C" LOG_API const char* SyLog_GetVersionString(void)
     return kSyLogVersionString;
 }
 
+// Log 是基础模块，不依赖 Utility DLL；pathToUtf8 与 Ut::FileUtils::pathToUtf8 实现一致。
 static std::string pathToUtf8(const fs::path& p)
 {
 #ifdef _WIN32
