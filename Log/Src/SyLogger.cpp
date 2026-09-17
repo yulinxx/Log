@@ -498,7 +498,6 @@ void SyLogger::Flush()
     }
 }
 
-
 // ==================== 级别控制 ====================
 void SyLogger::SetLevel(SyLogLevel level)
 {

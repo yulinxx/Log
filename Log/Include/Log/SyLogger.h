@@ -5,7 +5,7 @@
 #include <memory>
 
 #if defined(_MSC_VER)
-#    include <sal.h>
+    #include <sal.h>
 #endif
 
 // ---------------------------------------------------------------------------
@@ -20,17 +20,16 @@
 // MSVC：SAL 的 _Printf_format_string_，在 /analyze 静态分析下生效。
 // ---------------------------------------------------------------------------
 #if defined(__GNUC__) || defined(__clang__)
-#    define SYLOG_PRINTF_FMT(fmtIndex, firstArgIndex) __attribute__((format(printf, fmtIndex, firstArgIndex)))
+    #define SYLOG_PRINTF_FMT(fmtIndex, firstArgIndex) __attribute__((format(printf, fmtIndex, firstArgIndex)))
 #else
-#    define SYLOG_PRINTF_FMT(fmtIndex, firstArgIndex)
+    #define SYLOG_PRINTF_FMT(fmtIndex, firstArgIndex)
 #endif
 
 #if defined(_MSC_VER)
-#    define SYLOG_FMT_STR _Printf_format_string_
+    #define SYLOG_FMT_STR _Printf_format_string_
 #else
-#    define SYLOG_FMT_STR
+    #define SYLOG_FMT_STR
 #endif
-
 
 enum class SyLogLevel
 {
@@ -135,7 +134,6 @@ public:
     /// 都应当先调一次本函数。
     /// 可重入且对未初始化的 logger 安全（此时为空操作）。
     void Flush();
-
 
     void SetLevel(SyLogLevel level);
     SyLogLevel GetLevel() const;
