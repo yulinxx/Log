@@ -1,7 +1,5 @@
 #include "Log/SyLogger.h"
 
-#include "AppPathManager.h"
-
 #include <spdlog/spdlog.h>
 #include <spdlog/async.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -238,7 +236,8 @@ public:
             return g_defaultLogPath;
         }
 
-        return AppPathManager::logsDir().toStdString();
+        // 兜底返回空字符串：调用方必须通过 SetLogPathCallback 或 SetDefaultLogPath 设置路径。
+        return {};
     }
 
     void DoCleanOldLogs(const std::string& logDir, int maxAgeDays)
