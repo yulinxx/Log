@@ -1,5 +1,7 @@
 #include "Log/SyLogger.h"
 
+#include "AppPathManager.h"
+
 #include <spdlog/spdlog.h>
 #include <spdlog/async.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -16,7 +18,6 @@
 
 #ifdef _WIN32
     #include <Windows.h>
-    #include <ShlObj.h>
 #endif
 
 namespace fs = std::filesystem;
@@ -34,7 +35,7 @@ extern "C" LOG_API const char* SyLog_GetVersionString(void)
     return kSyLogVersionString;
 }
 
-// Log 是基础模块，不依赖 Utility DLL；pathToUtf8 与 Ut::FileUtils::pathToUtf8 实现一致。
+// pathToUtf8 与 Ut::FileUtils::pathToUtf8 实现一致。
 static std::string pathToUtf8(const fs::path& p)
 {
 #ifdef _WIN32
@@ -237,27 +238,7 @@ public:
             return g_defaultLogPath;
         }
 
-        const std::string appName = m_config.logName.empty() ? "SanYiCAD" : m_config.logName;
-
-#ifdef _WIN32
-        wchar_t* path = nullptr;
-        if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, NULL, &path)))
-        {
-            int size = WideCharToMultiByte(CP_UTF8, 0, path, -1, nullptr, 0, nullptr, nullptr);
-            std::string result(size - 1, 0);
-            WideCharToMultiByte(CP_UTF8, 0, path, -1, &result[0], size, nullptr, nullptr);
-            CoTaskMemFree(path);
-            return result + "\\" + appName + "\\logs";
-        }
-        return ".\\logs";
-#else
-        const char* home = getenv("HOME");
-        if (home)
-        {
-            return std::string(home) + "/.local/share/" + appName + "/logs";
-        }
-        return "./logs";
-#endif
+        return AppPathManager::logsDir().toStdString();
     }
 
     void DoCleanOldLogs(const std::string& logDir, int maxAgeDays)
@@ -399,7 +380,7 @@ void SyLogger::Initialize(const SyLogConfig& config)
         {
             fs::create_directories(logDir);
 
-            std::string logNameStr = config.logName ? config.logName : "";
+            std::string logNameStr = (config.logName && *config.logName) ? config.logName : "SanYiCAD";
             AddRotatingFileSink(sinks, pathToUtf8(logDir / (logNameStr + ".log")), config.maxFileSize, config.maxFiles);
 
             if (config.splitErrorLog)
@@ -459,7 +440,7 @@ void SyLogger::Initialize(const SyLogConfig& config)
 void SyLogger::Initialize(const char* logName, SyLogLevel level, bool consoleEnable, bool fileEnable)
 {
     SyLogConfig config;
-    config.logName = logName ? logName : "SanYiCAD";
+    config.logName = (logName && *logName) ? logName : "SanYiCAD";
     config.level = level;
     config.consoleEnable = consoleEnable;
     config.fileEnable = fileEnable;
