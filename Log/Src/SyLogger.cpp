@@ -158,7 +158,7 @@ static void AddRotatingFileSink(std::vector<spdlog::sink_ptr>& sinks,
     spdlog::level::level_enum minLevel = spdlog::level::trace)
 {
     auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filePath, maxFileSize, maxFiles);
-    sink->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] [%s:%#] %v");
+    sink->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] %v");
     sink->set_level(minLevel);
     sinks.push_back(sink);
 }
@@ -395,7 +395,7 @@ void SyLogger::Initialize(const SyLogConfig& config)
             {
                 auto debugInner = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
                     pathToUtf8(logDir / (logNameStr + ".debug.log")), config.maxFileSize, config.maxFiles);
-                debugInner->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] [%t] [%s:%#] %v");
+                debugInner->set_pattern("[%Y-%m-%d %H:%M:%S] [%L] %v");
                 debugInner->set_level(spdlog::level::trace);
                 auto debugSink =
                     std::make_shared<LevelRangeSinkMt>(debugInner, spdlog::level::trace, spdlog::level::debug);
