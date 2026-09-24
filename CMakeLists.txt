@@ -12,7 +12,6 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CMake/StandaloneInit.cmake)
 
 sanyi_find_gtest()
 
-option(BUILD_LOG_TESTS "Build Log module tests" ON)
 option(BUILD_LOG_EXAMPLE "Build Log usage example" ON)
 
 add_subdirectory(Log)
