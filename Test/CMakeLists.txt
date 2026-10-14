@@ -24,10 +24,10 @@ add_executable(LogTests ${LOG_TEST_SOURCES})
 target_compile_features(LogTests PRIVATE cxx_std_17)
 
 # 添加包含目录
+# 头文件在 Log/Log/Include（本 Test 目录的 ../Log/Include），不是 ../Include
 target_include_directories(LogTests PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/.."
-    "${CMAKE_CURRENT_SOURCE_DIR}/../Include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../Log/Include"
 )
 
 # 链接依赖库

@@ -255,8 +255,10 @@ TEST(SyLoggerTest, LogDirectory)
     EXPECT_TRUE(logDir != nullptr);
     EXPECT_STRNE(logDir, "");
 
-    // 应该包含日志名称
-    EXPECT_TRUE(std::string(logDir).find("DirectoryTest") != std::string::npos);
+    // logName 只作为日志文件名（<logName>.log），不进目录路径；
+    // 目录是 main 里 SetDefaultLogPath 设的默认目录。
+    EXPECT_TRUE(std::string(logDir).find("SanYiLogTests") != std::string::npos);
+    EXPECT_TRUE(std::filesystem::exists(std::filesystem::u8path(logDir) / "DirectoryTest.log"));
 }
 
 TEST(SyLoggerTest, CustomLogPath)
@@ -264,7 +266,9 @@ TEST(SyLoggerTest, CustomLogPath)
     SyLogger& logger = SyLogger::GetInstance();
 
     // 使用用户临时目录，避免权限问题
-    char tempPath[MAX_PATH] = { 0 };
+    // 非 Windows 无 MAX_PATH（本测试此前从未在非 Win 平台编译过）；
+    // GetTempPathA 仅在 Win 下填充，其余平台 tempPath 保持空串。
+    char tempPath[260] = { 0 };
 #ifdef _WIN32
     GetTempPathA(MAX_PATH, tempPath);
 #endif
@@ -571,5 +575,15 @@ TEST(SyTraceContextTest, PushIgnoresEmpty)
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
+
+    // 库设计：logPath 为空时 GetDefaultLogPath 兜底返回空串，
+    // 调用方必须先 SetDefaultLogPath/SetLogPathCallback，否则
+    // create_directories("") 抛 filesystem_error。测试统一落到临时目录。
+    namespace fs = std::filesystem;
+    static const fs::path defaultLogDir = fs::temp_directory_path() / "SanYiLogTests";
+    std::error_code ec;
+    fs::create_directories(defaultLogDir, ec);
+    SyLogger::SetDefaultLogPath(defaultLogDir.string().c_str());
+
     return RUN_ALL_TESTS();
 }

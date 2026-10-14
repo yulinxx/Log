@@ -51,6 +51,15 @@ sanyi_add_shared_library(${LIB_NAME}
         PRIVATE spdlog::spdlog
 )
 
+# --- 单元测试 ---
+# 注意：根 CMakeLists 直接 add_subdirectory(Log/Log)，不会经过父级 Log/CMakeLists.txt，
+# 因此测试必须挂在这里，否则 BUILD_LOG_TESTS=ON 也永远不生成 LogTests 目标。
+if(BUILD_LOG_TESTS)
+    enable_testing()
+    find_package(GTest CONFIG REQUIRED)
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../Test" "${CMAKE_CURRENT_BINARY_DIR}/Test")
+endif()
+
 message(STATUS "[${LIB_NAME}]")
 message(STATUS "  Version: ${PROJECT_VERSION}")
 message(STATUS "  Platform: ${CMAKE_SYSTEM_NAME}(${CMAKE_SYSTEM_PROCESSOR})")

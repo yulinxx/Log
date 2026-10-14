@@ -48,6 +48,12 @@ namespace SyTrace
 
     size_t resolveTraceId(const char* explicitId, char* buffer, size_t bufferSize)
     {
+        // 与 currentTraceId 相同的入参守卫：bufferSize==0 时下面的
+        // `bufferSize - 1` 会下溢成 SIZE_MAX，随后 memcpy 写穿缓冲区。
+        if (!buffer || bufferSize == 0)
+        {
+            return 0;
+        }
         if (explicitId && *explicitId)
         {
             const size_t len = std::strlen(explicitId);
