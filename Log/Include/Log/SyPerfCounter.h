@@ -214,14 +214,14 @@ private:
     /// 而两级中转也不够：__LINE__ 是本宏替换文本里引入的（不是调用点参数），
     /// 传入含 ## 的下一层时同样被抑制展开。中间层（XPAND）参数不参与 ##，
     /// 强制把 __LINE__ 预展开成行号，最后一层再粘贴。
-    #define SY_PERF_SCOPE_IMPL(name, line) ScopedPerfTimer _sy_perf_timer_##line(name)
+    #define SY_PERF_SCOPE_IMPL(name, line)  ScopedPerfTimer _sy_perf_timer_##line(name)
     #define SY_PERF_SCOPE_XPAND(name, line) SY_PERF_SCOPE_IMPL(name, line)
-    #define SY_PERF_SCOPE(name) SY_PERF_SCOPE_XPAND(name, __LINE__)
+    #define SY_PERF_SCOPE(name)             SY_PERF_SCOPE_XPAND(name, __LINE__)
 
     /// 便捷宏：统计指定代码块的耗时并写入累计统计（同 SY_PERF_SCOPE 的三级中转）
-    #define SY_PERF_SCOPE_STATS_IMPL(name, line, statsPtr) ScopedPerfTimer _sy_perf_timer_##line(name, statsPtr)
+    #define SY_PERF_SCOPE_STATS_IMPL(name, line, statsPtr)  ScopedPerfTimer _sy_perf_timer_##line(name, statsPtr)
     #define SY_PERF_SCOPE_STATS_XPAND(name, line, statsPtr) SY_PERF_SCOPE_STATS_IMPL(name, line, statsPtr)
-    #define SY_PERF_SCOPE_STATS(name, statsPtr) SY_PERF_SCOPE_STATS_XPAND(name, __LINE__, statsPtr)
+    #define SY_PERF_SCOPE_STATS(name, statsPtr)             SY_PERF_SCOPE_STATS_XPAND(name, __LINE__, statsPtr)
 
 #else  // !SY_PERF_ENABLED
 
@@ -247,30 +247,30 @@ public:
     ///
     /// 同 SY_PERF_SCOPE：## 粘贴阻止 __LINE__ 展开，需三级宏中转（见上）。
     /// for 的作用域隔离让同名问题平时不炸，但搬进同一作用域就会重复定义。
-    #define SY_PERF_BLOCK_IMPL(name, thresholdMs, line)                                                            \
-        for (struct {                                                                                            \
-                 const char* _n;                                                                                 \
-                 double _t;                                                                                      \
-                 bool _done;                                                                                     \
-                 std::chrono::high_resolution_clock::time_point _s;                                              \
-                 ~decltype (*this)()                                                                             \
-                 {                                                                                               \
-                     if (_done)                                                                                  \
-                         return;                                                                                 \
-                     auto _e = std::chrono::high_resolution_clock::now();                                        \
-                     double _ms = std::chrono::duration<double, std::milli>(_e - _s).count();                    \
-                     if (_ms > (_t))                                                                             \
-                     {                                                                                           \
-                         char _buf[256];                                                                         \
-                         snprintf(_buf, sizeof(_buf), "[PERF] %s: %.2f ms (threshold %.1f ms)", _n, _ms, (_t));  \
-                         SyLogger::GetInstance().WarnStr(_buf);                                                  \
-                     }                                                                                           \
-                 }                                                                                               \
-             } _sy_perf_block_##line{ name, thresholdMs, false, std::chrono::high_resolution_clock::now() };      \
-            !_sy_perf_block_##line._done;                                                                        \
+    #define SY_PERF_BLOCK_IMPL(name, thresholdMs, line)                                                         \
+        for (struct {                                                                                           \
+                 const char* _n;                                                                                \
+                 double _t;                                                                                     \
+                 bool _done;                                                                                    \
+                 std::chrono::high_resolution_clock::time_point _s;                                             \
+                 ~decltype (*this)()                                                                            \
+                 {                                                                                              \
+                     if (_done)                                                                                 \
+                         return;                                                                                \
+                     auto _e = std::chrono::high_resolution_clock::now();                                       \
+                     double _ms = std::chrono::duration<double, std::milli>(_e - _s).count();                   \
+                     if (_ms > (_t))                                                                            \
+                     {                                                                                          \
+                         char _buf[256];                                                                        \
+                         snprintf(_buf, sizeof(_buf), "[PERF] %s: %.2f ms (threshold %.1f ms)", _n, _ms, (_t)); \
+                         SyLogger::GetInstance().WarnStr(_buf);                                                 \
+                     }                                                                                          \
+                 }                                                                                              \
+             } _sy_perf_block_##line{ name, thresholdMs, false, std::chrono::high_resolution_clock::now() };    \
+            !_sy_perf_block_##line._done;                                                                       \
             _sy_perf_block_##line._done = true)
     #define SY_PERF_BLOCK_XPAND(name, thresholdMs, line) SY_PERF_BLOCK_IMPL(name, thresholdMs, line)
-    #define SY_PERF_BLOCK(name, thresholdMs) SY_PERF_BLOCK_XPAND(name, thresholdMs, __LINE__)
+    #define SY_PERF_BLOCK(name, thresholdMs)             SY_PERF_BLOCK_XPAND(name, thresholdMs, __LINE__)
 
 #else
 
