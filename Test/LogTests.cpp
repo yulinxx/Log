@@ -10,6 +10,11 @@
 #include <thread>
 
 #ifdef _WIN32
+    // 本文件用 GetTempPathA / MAX_PATH，必须包含 Windows 头。
+    // 但要注意：Windows 头里有 `#define small char` 这类老式兼容宏，
+    // Unity Build 会把本目录的其它测试文件拼进同一个翻译单元，宏会串味 ——
+    // 变量名 small 会被展开成 char，编译报「'char' 后面的 'char' 非法」。
+    // 同一 unity 块里的其它文件请避开 small / near / far 这些名字。
     #include <Windows.h>
 #endif
 

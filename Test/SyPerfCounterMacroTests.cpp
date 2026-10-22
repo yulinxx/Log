@@ -63,7 +63,9 @@ TEST(SyTraceContextResolveTest, ExplicitIdCopiedWithTruncation)
     EXPECT_STREQ(buf, "abc");
 
     // 超长显式 ID：截断到 bufferSize-1 并保证 null 终止
-    char small[4] = { 'x', 'x', 'x', 'x' };
-    EXPECT_EQ(SyTrace::resolveTraceId("abcdefgh", small, sizeof(small)), 3u);
-    EXPECT_STREQ(small, "abc");
+    // 变量名不用 small：Windows 头（winnt.h）里有 `#define small char`，
+    // Unity Build 把它和本文件拼进同一翻译单元时会展开成 `char char[4]`。
+    char tiny[4] = { 'x', 'x', 'x', 'x' };
+    EXPECT_EQ(SyTrace::resolveTraceId("abcdefgh", tiny, sizeof(tiny)), 3u);
+    EXPECT_STREQ(tiny, "abc");
 }
