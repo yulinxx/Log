@@ -238,7 +238,17 @@ TEST(SyLoggerTest, FormattedLoggingEdgeCases)
 
     // 测试边界情况
     logger.InfoF("Empty format string");
-    logger.InfoF("");  // 空字符串
+#ifdef __GNUC__
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wformat"
+    #pragma GCC diagnostic ignored "-Wformat-security"
+    #pragma GCC diagnostic ignored "-Wformat-zero-length"
+    // 故意喂空串，验证 logger 不崩溃（编译期已知为边界用例，规避 format 字面量检查）
+    logger.InfoF("");
+    #pragma GCC diagnostic pop
+#else
+    logger.InfoF("");
+#endif
     logger.InfoF(
         "Very long format string with many parameters: %d %d %d %d %d %d %d %d %d %d", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
@@ -382,7 +392,15 @@ TEST(SyLoggerTest, ErrorHandling)
     EXPECT_NO_THROW(logger.InfoStr(longMessage.c_str()));
 
     // 测试格式化字符串中的无效格式
+#ifdef __GNUC__
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wformat"
+    // 故意喂带孤立 % 的非法格式串，验证 logger 不抛异常
     EXPECT_NO_THROW(logger.InfoF("Invalid format: %"));
+    #pragma GCC diagnostic pop
+#else
+    EXPECT_NO_THROW(logger.InfoF("Invalid format: %"));
+#endif
 }
 
 // ==================== 便捷宏测试 ====================
