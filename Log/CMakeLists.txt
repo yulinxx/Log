@@ -47,8 +47,8 @@ sanyi_add_shared_library(${LIB_NAME}
     HEADERS ${LIB_HEADERS}
     PUBLIC_INCLUDE_DIRS
         "${CMAKE_CURRENT_SOURCE_DIR}/Include"
-    LINK_LIBRARIES
-        PRIVATE spdlog::spdlog
+    PRIVATE_LINK_LIBRARIES
+        spdlog::spdlog
 )
 
 # --- 单元测试 ---

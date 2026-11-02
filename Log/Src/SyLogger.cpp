@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstdarg>
 #include <cstdlib>
+#include <fstream>
 #include <mutex>
 #include <atomic>
 #include <thread>
@@ -151,12 +152,25 @@ static spdlog::level::level_enum ToSpdlogLevel(SyLogLevel level)
 }
 
 // ==================== 文件 Sink 辅助函数 ====================
+// UTF-8 BOM(EF BB BF) 让记事本/VS Code 自动识别文件编码为 UTF-8,
+// 避免用 GBK(CP936) 打开后中文字符串被锁码(如 "排样"→"鎺掓牱")
+static void WriteUtf8Bom(const std::string& filePath)
+{
+    std::ofstream f(filePath, std::ios::binary);
+    if (f.is_open() && f.tellp() == 0)
+    {
+        f.write("\xEF\xBB\xBF", 3);
+    }
+}
+
 static void AddRotatingFileSink(std::vector<spdlog::sink_ptr>& sinks,
     const std::string& filePath,
     size_t maxFileSize,
     size_t maxFiles,
     spdlog::level::level_enum minLevel = spdlog::level::trace)
 {
+    // 在 rotating_file_sink 创建时文件会被截断,先写 BOM
+    WriteUtf8Bom(filePath);
     auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filePath, maxFileSize, maxFiles);
     sink->set_pattern("[%Y-%m-%d %H:%M:%S] %L %v");
     sink->set_level(minLevel);
@@ -370,6 +384,11 @@ void SyLogger::Initialize(const SyLogConfig& config)
 
         if (config.consoleEnable)
         {
+#ifdef _WIN32
+            // 强制控制台输出代码页为 UTF-8(65001),PowerShell 默认 CP936 会把
+            // UTF-8 字节误解码成 GBK,导致 "排样"→"鎺掓牱" 的锁码现象
+            SetConsoleOutputCP(65001);
+#endif
             auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
             consoleSink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%L%$] %v");
             sinks.push_back(consoleSink);
