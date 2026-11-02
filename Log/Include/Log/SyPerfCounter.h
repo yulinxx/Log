@@ -30,9 +30,7 @@
     #endif
 #endif
 
-// ============================================================================
-// 性能统计数据结构（POD，跨 DLL 安全）
-// ============================================================================
+
 
 struct PerfStats
 {
@@ -44,9 +42,7 @@ struct PerfStats
     double avgMs;        // 平均耗时 (ms)
 };
 
-// ============================================================================
-// 帧耗时追踪器
-// ============================================================================
+
 
 class FrameTimer
 {
@@ -60,13 +56,11 @@ public:
     {
     }
 
-    /// 开始新帧计时，应在每帧开始时调用
     void beginFrame()
     {
         m_frameStart = std::chrono::high_resolution_clock::now();
     }
 
-    /// 结束当前帧计时，应在每帧渲染完成后调用
     void endFrame()
     {
         auto now = std::chrono::high_resolution_clock::now();
@@ -91,26 +85,22 @@ public:
         }
     }
 
-    /// 获取当前帧耗时 (ms)
     double currentFrameMs() const
     {
         auto now = std::chrono::high_resolution_clock::now();
         return std::chrono::duration<double, std::milli>(now - m_frameStart).count();
     }
 
-    /// 获取平均帧耗时 (ms)
     double avgFrameMs() const
     {
         return m_frameCount > 0 ? m_totalMs / m_frameCount : 0.0;
     }
 
-    /// 获取帧数
     uint64_t frameCount() const
     {
         return m_frameCount;
     }
 
-    /// 手动上报统计
     void report()
     {
         if (m_frameCount == 0)
@@ -129,7 +119,6 @@ public:
         SyLogger::GetInstance().InfoStr(buf);
     }
 
-    /// 重置所有累计数据
     void reset()
     {
         m_frameCount = 0;
@@ -148,9 +137,7 @@ private:
     uint64_t m_lastReportFrame;
 };
 
-// ============================================================================
-// 操作耗时 RAII 作用域计时器
-// ============================================================================
+
 
 #if SY_PERF_ENABLED
 
@@ -186,7 +173,6 @@ public:
             m_stats->avgMs = m_stats->totalMs / m_stats->callCount;
         }
 
-        // 超过阈值时输出警告
         if (ms > 16.0)
         {
             char buf[256];
@@ -236,9 +222,7 @@ public:
 
 #endif  // SY_PERF_ENABLED
 
-// ============================================================================
-// 操作耗时宏（简化版，直接输出日志）
-// ============================================================================
+
 
 #if SY_PERF_ENABLED
 
@@ -282,15 +266,8 @@ public:
 
 #endif  // SY_PERF_ENABLED
 
-// ============================================================================
-// 性能统计上报辅助函数
-// ============================================================================
 
-/// 格式化 PerfStats 为字符串
-/// @param buf  输出缓冲区
-/// @param size 缓冲区大小
-/// @param stats 统计数据
-/// @return 写入的字符数（不含 null 终止符）
+
 inline int perfStatsToString(char* buf, size_t size, const PerfStats& stats)
 {
     return snprintf(buf,

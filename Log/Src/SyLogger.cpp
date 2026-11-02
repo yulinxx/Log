@@ -60,7 +60,7 @@ static std::string g_defaultLogPath;
 static SyLogger::LogPathCallback g_logPathCallback = nullptr;
 static void* g_logPathCallbackCtx = nullptr;
 
-// ==================== 日志速率限制器 ====================
+
 class LogRateLimiter
 {
 public:
@@ -94,7 +94,7 @@ private:
     int m_count = 0;
 };
 
-// ==================== 级别区间过滤 Sink ====================
+
 template<typename Mutex>
 class LevelRangeSink : public spdlog::sinks::base_sink<Mutex>
 {
@@ -129,7 +129,7 @@ private:
 
 using LevelRangeSinkMt = LevelRangeSink<std::mutex>;
 
-// ==================== 级别映射 ====================
+
 static spdlog::level::level_enum ToSpdlogLevel(SyLogLevel level)
 {
     switch (level)
@@ -151,7 +151,7 @@ static spdlog::level::level_enum ToSpdlogLevel(SyLogLevel level)
     }
 }
 
-// ==================== 文件 Sink 辅助函数 ====================
+
 // UTF-8 BOM(EF BB BF) 让记事本/VS Code 自动识别文件编码为 UTF-8,
 // 避免用 GBK(CP936) 打开后中文字符串被锁码(如 "排样"→"鎺掓牱")
 static void WriteUtf8Bom(const std::string& filePath)
@@ -177,7 +177,7 @@ static void AddRotatingFileSink(std::vector<spdlog::sink_ptr>& sinks,
     sinks.push_back(sink);
 }
 
-// ==================== 格式化字符串（优化版：栈缓冲优先） ====================
+
 static std::string FormatString(const char* fmt, va_list args)
 {
     va_list args_copy;
@@ -206,7 +206,7 @@ static std::string FormatString(const char* fmt, va_list args)
     return result;
 }
 
-// ==================== pimpl 实现类 ====================
+
 class SyLoggerImpl
 {
 public:
@@ -332,7 +332,7 @@ public:
 bool SyLoggerImpl::s_threadPoolInitialized = false;
 std::mutex SyLoggerImpl::s_tpMutex;
 
-// ==================== 单例实现 ====================
+
 SyLogger& SyLogger::GetInstance()
 {
     static SyLogger instance;
@@ -356,7 +356,7 @@ SyLogger::~SyLogger()
     m_impl = nullptr;
 }
 
-// ==================== 初始化 ====================
+
 void SyLogger::Initialize(const SyLogConfig& config)
 {
     std::lock_guard<std::mutex> lock(m_impl->m_mutex);
@@ -465,7 +465,7 @@ void SyLogger::Initialize(const char* logName, SyLogLevel level, bool consoleEna
     Initialize(config);
 }
 
-// ==================== 关闭 ====================
+
 void SyLogger::Shutdown()
 {
     std::lock_guard<std::mutex> lock(m_impl->m_mutex);
@@ -497,7 +497,7 @@ void SyLogger::Flush()
     }
 }
 
-// ==================== 级别控制 ====================
+
 void SyLogger::SetLevel(SyLogLevel level)
 {
     std::lock_guard<std::mutex> lock(m_impl->m_mutex);
@@ -543,14 +543,14 @@ const char* SyLogger::GetDefaultLogPath()
     return g_defaultLogPath.c_str();
 }
 
-// ==================== 清理过期日志 ====================
+
 void SyLogger::CleanOldLogs()
 {
     std::lock_guard<std::mutex> lock(m_impl->m_mutex);
     m_impl->ApplyCleanOldLogs();
 }
 
-// ==================== 字符串日志（向后兼容） ====================
+
 void SyLogger::TraceStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
@@ -611,7 +611,7 @@ void SyLogger::CriticalStr(const char* msg)
     logger->log(spdlog::level::critical, msg ? msg : "");
 }
 
-// ==================== 格式化日志（向后兼容） ====================
+
 #define DEFINE_LEGACY_PRINTF_METHOD(name, spdLevel)      \
     void SyLogger::name(const char* fmt, ...)            \
     {                                                    \
@@ -634,7 +634,7 @@ DEFINE_LEGACY_PRINTF_METHOD(WarnF, spdlog::level::warn)
 DEFINE_LEGACY_PRINTF_METHOD(ErrorF, spdlog::level::err)
 DEFINE_LEGACY_PRINTF_METHOD(CriticalF, spdlog::level::critical)
 
-// ==================== 带源位置的字符串日志（由宏使用） ====================
+
 void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
@@ -657,7 +657,7 @@ void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const char* 
     }
 }
 
-// ==================== 带源位置的格式化日志（由宏使用） ====================
+
 void SyLogger::LogFSrc(SyLogLevel level, const char* file, int line, const char* fmt, ...)
 {
     std::shared_ptr<spdlog::logger> logger;
