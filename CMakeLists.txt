@@ -16,14 +16,14 @@ cmake_minimum_required(VERSION 4.3)
 #   2) Log 是叶子模块，只依赖 vcpkg 的 spdlog，没有兄弟 DLL 需要拉入，
 #      可脱离主程序单独编译。
 #
-#   3) 测试由内层 Log/Log/CMakeLists.txt 在 BUILD_LOG_TESTS=ON 时挂载，
+#   3) 测试由内层 Log/Log/CMakeLists.txt 在 BUILD_TESTS=ON 时挂载，
 #      本文件不得重复 add_subdirectory(Test)，否则 target 重定义。
 #
 # 用法：
 #   cmake -S Log -B Log/build
 #   cmake --build Log/build --config Release
 #   ctest --test-dir Log/build -C Release
-#   cmake -S Log -B Log/build -DBUILD_LOG_TESTS=OFF    # 只编库、不编测试
+#   cmake -S Log -B Log/build -DBUILD_TESTS=OFF    # 只编库、不编测试
 #   cmake -S Log -B Log/build -DBUILD_LOG_EXAMPLE=OFF  # 不编示例
 # ============================================================================
 
@@ -43,12 +43,10 @@ sanyi_setup_compiler_options()
 option(BUILD_LOG_EXAMPLE "Build Log usage example" ON)
 
 # --- 测试 -------------------------------------------------------------------
-sanyi_only_own_tests(BUILD_LOG_TESTS)
-if(BUILD_LOG_TESTS)
-    sanyi_find_gtest()
-endif()
+sanyi_only_own_tests(LOG)
+sanyi_finalize_tests()
 
-# 内层：创建 Log DLL、挂载测试（BUILD_LOG_TESTS 时）、输出状态
+# 内层：创建 Log DLL、挂载测试（BUILD_TESTS 时）、输出状态
 add_subdirectory(Log)
 
 # --- 示例（独立构建专属） ---------------------------------------------------
@@ -62,7 +60,6 @@ message(STATUS "========================================")
 message(STATUS "  [Standalone: ${PROJECT_NAME}]")
 message(STATUS "========================================")
 message(STATUS "  Version:       ${PROJECT_VERSION}")
-message(STATUS "  Build Tests:   ${BUILD_LOG_TESTS}")
 message(STATUS "  Build Example: ${BUILD_LOG_EXAMPLE}")
 message(STATUS "  Output:        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 message(STATUS "========================================")

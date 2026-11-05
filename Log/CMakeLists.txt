@@ -53,8 +53,9 @@ sanyi_add_shared_library(${LIB_NAME}
 
 # --- 单元测试 ---
 # 注意：根 CMakeLists 直接 add_subdirectory(Log/Log)，不会经过父级 Log/CMakeLists.txt，
-# 因此测试必须挂在这里，否则 BUILD_LOG_TESTS=ON 也永远不生成 LogTests 目标。
-if(BUILD_LOG_TESTS)
+# 因此测试必须挂在这里，否则总开关打开时也永远不生成 LogTests 目标。
+sanyi_module_tests_enabled(LOG _log_tests)
+if(_log_tests)
     enable_testing()
     find_package(GTest CONFIG REQUIRED)
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../Test" "${CMAKE_CURRENT_BINARY_DIR}/Test")
