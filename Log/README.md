@@ -362,11 +362,11 @@ target_include_directories(YourTarget PRIVATE
 #### 构建选项
 
 ```cmake
-option(BUILD_LOG_TESTS "Build Log module tests" ON)
+# 测试开关由根 Config.cmake 统一定义，模块内不再单独声明
 option(BUILD_LOG_EXAMPLE "Build Log usage example" ON)
 ```
 
-- `BUILD_LOG_TESTS`：构建单元测试
+- `BUILD_TESTS`：全工程唯一测试开关，构建单元测试
 - `BUILD_LOG_EXAMPLE`：构建示例程序
 
 ---
