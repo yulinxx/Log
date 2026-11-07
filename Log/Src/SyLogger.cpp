@@ -333,6 +333,24 @@ bool SyLoggerImpl::s_threadPoolInitialized = false;
 std::mutex SyLoggerImpl::s_tpMutex;
 
 
+// 进程退出期的安全阀。
+//
+// SyLogger 是 libLog 共享库里的函数内静态对象，而 Vision 等模块的单例是主程序
+// （或其它 DLL）里的函数内静态对象。__cxa_finalize 会让 libLog 的静态析构先于
+// 主程序执行；这些模块的析构函数若还在打日志，拿到的就是已经被 delete 并置空
+// 的 m_impl，PrepareLogger 读 m_enabled 时直接 SIGSEGV。
+// 实测栈：VisionService::~VisionService -> shutdown() -> VIS_LOG_INFO -> LogSrc。
+//
+// ~SyLogger() 已经刻意不碰 spdlog 的全局静态对象，这里补上最后半步：析构之后
+// 所有日志入口退化为无操作。此时文件 sink 已随 ~SyLoggerImpl 关闭并 flush，
+// 本来也无法再落盘；显式的 Shutdown() 正常路径完全不受影响。
+static bool PrepareLoggerIfAlive(SyLoggerImpl* impl,
+                                 std::shared_ptr<spdlog::logger>& outLogger)
+{
+    return impl != nullptr && impl->PrepareLogger(outLogger);
+}
+
+
 SyLogger& SyLogger::GetInstance()
 {
     static SyLogger instance;
@@ -554,7 +572,7 @@ void SyLogger::CleanOldLogs()
 void SyLogger::TraceStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
-    if (!m_impl->PrepareLogger(logger))
+    if (!PrepareLoggerIfAlive(m_impl, logger))
     {
         return;
     }
@@ -564,7 +582,7 @@ void SyLogger::TraceStr(const char* msg)
 void SyLogger::DebugStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
-    if (!m_impl->PrepareLogger(logger))
+    if (!PrepareLoggerIfAlive(m_impl, logger))
     {
         return;
     }
@@ -574,7 +592,7 @@ void SyLogger::DebugStr(const char* msg)
 void SyLogger::InfoStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
-    if (!m_impl->PrepareLogger(logger))
+    if (!PrepareLoggerIfAlive(m_impl, logger))
     {
         return;
     }
@@ -584,7 +602,7 @@ void SyLogger::InfoStr(const char* msg)
 void SyLogger::WarnStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
-    if (!m_impl->PrepareLogger(logger))
+    if (!PrepareLoggerIfAlive(m_impl, logger))
     {
         return;
     }
@@ -594,7 +612,7 @@ void SyLogger::WarnStr(const char* msg)
 void SyLogger::ErrorStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
-    if (!m_impl->PrepareLogger(logger))
+    if (!PrepareLoggerIfAlive(m_impl, logger))
     {
         return;
     }
@@ -604,7 +622,7 @@ void SyLogger::ErrorStr(const char* msg)
 void SyLogger::CriticalStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
-    if (!m_impl->PrepareLogger(logger))
+    if (!PrepareLoggerIfAlive(m_impl, logger))
     {
         return;
     }
@@ -616,7 +634,7 @@ void SyLogger::CriticalStr(const char* msg)
     void SyLogger::name(const char* fmt, ...)            \
     {                                                    \
         std::shared_ptr<spdlog::logger> logger;          \
-        if (!m_impl->PrepareLogger(logger))              \
+        if (!PrepareLoggerIfAlive(m_impl, logger))              \
             return;                                      \
         if (!logger->should_log(spdLevel))               \
             return;                                      \
@@ -638,7 +656,7 @@ DEFINE_LEGACY_PRINTF_METHOD(CriticalF, spdlog::level::critical)
 void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
-    if (!m_impl->PrepareLogger(logger))
+    if (!PrepareLoggerIfAlive(m_impl, logger))
     {
         return;
     }
@@ -661,7 +679,7 @@ void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const char* 
 void SyLogger::LogFSrc(SyLogLevel level, const char* file, int line, const char* fmt, ...)
 {
     std::shared_ptr<spdlog::logger> logger;
-    if (!m_impl->PrepareLogger(logger))
+    if (!PrepareLoggerIfAlive(m_impl, logger))
     {
         return;
     }
