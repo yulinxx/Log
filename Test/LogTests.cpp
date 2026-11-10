@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "LogAPI.h"
-#include "Log/SyLogger.h"
-#include "Log/SyTraceContext.h"
+#include "Log/AprLogger.h"
+#include "Log/AprTraceContext.h"
 
 #include <string>
 #include <fstream>
@@ -20,36 +20,36 @@
 
 // ==================== 日志级别测试 ====================
 
-TEST(SyLogLevelTest, LevelComparison)
+TEST(AprLogLevelTest, LevelComparison)
 {
-    EXPECT_LT(static_cast<int>(SyLogLevel::Trace), static_cast<int>(SyLogLevel::Debug));
-    EXPECT_LT(static_cast<int>(SyLogLevel::Debug), static_cast<int>(SyLogLevel::Info));
-    EXPECT_LT(static_cast<int>(SyLogLevel::Info), static_cast<int>(SyLogLevel::Warn));
-    EXPECT_LT(static_cast<int>(SyLogLevel::Warn), static_cast<int>(SyLogLevel::Error));
-    EXPECT_LT(static_cast<int>(SyLogLevel::Error), static_cast<int>(SyLogLevel::Critical));
-    EXPECT_LT(static_cast<int>(SyLogLevel::Critical), static_cast<int>(SyLogLevel::Off));
+    EXPECT_LT(static_cast<int>(AprLogLevel::Trace), static_cast<int>(AprLogLevel::Debug));
+    EXPECT_LT(static_cast<int>(AprLogLevel::Debug), static_cast<int>(AprLogLevel::Info));
+    EXPECT_LT(static_cast<int>(AprLogLevel::Info), static_cast<int>(AprLogLevel::Warn));
+    EXPECT_LT(static_cast<int>(AprLogLevel::Warn), static_cast<int>(AprLogLevel::Error));
+    EXPECT_LT(static_cast<int>(AprLogLevel::Error), static_cast<int>(AprLogLevel::Critical));
+    EXPECT_LT(static_cast<int>(AprLogLevel::Critical), static_cast<int>(AprLogLevel::Off));
 }
 
-TEST(SyLogLevelTest, LevelValues)
+TEST(AprLogLevelTest, LevelValues)
 {
-    EXPECT_EQ(static_cast<int>(SyLogLevel::Trace), 0);
-    EXPECT_EQ(static_cast<int>(SyLogLevel::Debug), 1);
-    EXPECT_EQ(static_cast<int>(SyLogLevel::Info), 2);
-    EXPECT_EQ(static_cast<int>(SyLogLevel::Warn), 3);
-    EXPECT_EQ(static_cast<int>(SyLogLevel::Error), 4);
-    EXPECT_EQ(static_cast<int>(SyLogLevel::Critical), 5);
-    EXPECT_EQ(static_cast<int>(SyLogLevel::Off), 6);
+    EXPECT_EQ(static_cast<int>(AprLogLevel::Trace), 0);
+    EXPECT_EQ(static_cast<int>(AprLogLevel::Debug), 1);
+    EXPECT_EQ(static_cast<int>(AprLogLevel::Info), 2);
+    EXPECT_EQ(static_cast<int>(AprLogLevel::Warn), 3);
+    EXPECT_EQ(static_cast<int>(AprLogLevel::Error), 4);
+    EXPECT_EQ(static_cast<int>(AprLogLevel::Critical), 5);
+    EXPECT_EQ(static_cast<int>(AprLogLevel::Off), 6);
 }
 
 // ==================== 日志配置测试 ====================
 
-TEST(SyLogConfigTest, DefaultConfiguration)
+TEST(AprLogConfigTest, DefaultConfiguration)
 {
-    SyLogConfig config;
+    AprLogConfig config;
 
-    EXPECT_STREQ(config.logName, "SanYiCAD");
+    EXPECT_STREQ(config.logName, "April");
     EXPECT_STREQ(config.logPath, "");
-    EXPECT_EQ(config.level, SyLogLevel::Debug);
+    EXPECT_EQ(config.level, AprLogLevel::Debug);
     EXPECT_TRUE(config.consoleEnable);
     EXPECT_TRUE(config.fileEnable);
     EXPECT_EQ(config.maxAgeDays, 30);
@@ -60,12 +60,12 @@ TEST(SyLogConfigTest, DefaultConfiguration)
     EXPECT_EQ(config.asyncThreads, 1);
 }
 
-TEST(SyLogConfigTest, CustomConfiguration)
+TEST(AprLogConfigTest, CustomConfiguration)
 {
-    SyLogConfig config;
+    AprLogConfig config;
     config.logName = "TestApp";
     config.logPath = "";
-    config.level = SyLogLevel::Info;
+    config.level = AprLogLevel::Info;
     config.consoleEnable = false;
     config.fileEnable = true;
     config.maxAgeDays = 7;
@@ -77,7 +77,7 @@ TEST(SyLogConfigTest, CustomConfiguration)
 
     EXPECT_STREQ(config.logName, "TestApp");
     EXPECT_STREQ(config.logPath, "");
-    EXPECT_EQ(config.level, SyLogLevel::Info);
+    EXPECT_EQ(config.level, AprLogLevel::Info);
     EXPECT_FALSE(config.consoleEnable);
     EXPECT_TRUE(config.fileEnable);
     EXPECT_EQ(config.maxAgeDays, 7);
@@ -90,38 +90,38 @@ TEST(SyLogConfigTest, CustomConfiguration)
 
 // ==================== 日志器单例测试 ====================
 
-TEST(SyLoggerTest, SingletonPattern)
+TEST(AprLoggerTest, SingletonPattern)
 {
-    SyLogger& logger1 = SyLogger::GetInstance();
-    SyLogger& logger2 = SyLogger::GetInstance();
+    AprLogger& logger1 = AprLogger::GetInstance();
+    AprLogger& logger2 = AprLogger::GetInstance();
 
     // 确保是同一个实例
     EXPECT_EQ(&logger1, &logger2);
 }
 
-TEST(SyLoggerTest, Initialization)
+TEST(AprLoggerTest, Initialization)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
     // 测试默认初始化
     logger.Initialize();
 
     // 测试自定义初始化
-    logger.Initialize("TestLogger", SyLogLevel::Info, false, true);
+    logger.Initialize("TestLogger", AprLogLevel::Info, false, true);
 
     // 测试配置结构初始化
-    SyLogConfig config;
+    AprLogConfig config;
     config.logName = "ConfigLogger";
-    config.level = SyLogLevel::Warn;
+    config.level = AprLogLevel::Warn;
     config.consoleEnable = true;
     config.fileEnable = false;
 
     logger.Initialize(config);
 }
 
-TEST(SyLoggerTest, Shutdown)
+TEST(AprLoggerTest, Shutdown)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
     logger.Initialize("ShutdownTest");
     logger.Shutdown();
@@ -132,26 +132,26 @@ TEST(SyLoggerTest, Shutdown)
 
 // ==================== 日志级别控制测试 ====================
 
-TEST(SyLoggerTest, LevelControl)
+TEST(AprLoggerTest, LevelControl)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
-    logger.Initialize("LevelTest", SyLogLevel::Info);
+    logger.Initialize("LevelTest", AprLogLevel::Info);
 
     // 测试设置和获取级别
-    logger.SetLevel(SyLogLevel::Warn);
-    EXPECT_EQ(logger.GetLevel(), SyLogLevel::Warn);
+    logger.SetLevel(AprLogLevel::Warn);
+    EXPECT_EQ(logger.GetLevel(), AprLogLevel::Warn);
 
-    logger.SetLevel(SyLogLevel::Error);
-    EXPECT_EQ(logger.GetLevel(), SyLogLevel::Error);
+    logger.SetLevel(AprLogLevel::Error);
+    EXPECT_EQ(logger.GetLevel(), AprLogLevel::Error);
 
-    logger.SetLevel(SyLogLevel::Trace);
-    EXPECT_EQ(logger.GetLevel(), SyLogLevel::Trace);
+    logger.SetLevel(AprLogLevel::Trace);
+    EXPECT_EQ(logger.GetLevel(), AprLogLevel::Trace);
 }
 
-TEST(SyLoggerTest, EnableDisable)
+TEST(AprLoggerTest, EnableDisable)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
     logger.Initialize("EnableTest");
 
@@ -165,11 +165,11 @@ TEST(SyLoggerTest, EnableDisable)
 
 // ==================== 字符串日志测试 ====================
 
-TEST(SyLoggerTest, StringLogging)
+TEST(AprLoggerTest, StringLogging)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
-    logger.Initialize("StringTest", SyLogLevel::Trace);
+    logger.Initialize("StringTest", AprLogLevel::Trace);
 
     // 测试所有级别的字符串日志
     logger.TraceStr("This is a trace message");
@@ -180,7 +180,7 @@ TEST(SyLoggerTest, StringLogging)
     logger.CriticalStr("This is a critical message");
 
     // 测试不同级别的过滤
-    logger.SetLevel(SyLogLevel::Warn);
+    logger.SetLevel(AprLogLevel::Warn);
 
     // 这些消息应该被过滤掉
     logger.TraceStr("This trace should be filtered");
@@ -193,9 +193,9 @@ TEST(SyLoggerTest, StringLogging)
     logger.CriticalStr("This critical should be logged");
 }
 
-TEST(SyLoggerTest, StringLoggingDisabled)
+TEST(AprLoggerTest, StringLoggingDisabled)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
     logger.Initialize("DisabledTest");
     logger.SetEnabled(false);
@@ -210,11 +210,11 @@ TEST(SyLoggerTest, StringLoggingDisabled)
 
 // ==================== 格式化日志测试 ====================
 
-TEST(SyLoggerTest, FormattedLogging)
+TEST(AprLoggerTest, FormattedLogging)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
-    logger.Initialize("FormatTest", SyLogLevel::Debug);
+    logger.Initialize("FormatTest", AprLogLevel::Debug);
 
     // 测试格式化日志
     logger.DebugF("Formatted debug: %s %d", "test", 123);
@@ -223,16 +223,16 @@ TEST(SyLoggerTest, FormattedLogging)
     logger.ErrorF("Formatted error: %s", "error message");
 
     // 测试复杂格式化
-    const char* name = "SanYi";
+    const char* name = "April";
     int version = 1;
     double dValue = 99.99;
 
     logger.InfoF("Application %s v%d started with value %.2f", name, version, dValue);
 }
 
-TEST(SyLoggerTest, FormattedLoggingEdgeCases)
+TEST(AprLoggerTest, FormattedLoggingEdgeCases)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
     logger.Initialize("FormatEdgeTest");
 
@@ -258,9 +258,9 @@ TEST(SyLoggerTest, FormattedLoggingEdgeCases)
 
 // ==================== 日志文件管理测试 ====================
 
-TEST(SyLoggerTest, LogDirectory)
+TEST(AprLoggerTest, LogDirectory)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
     logger.Initialize("DirectoryTest");
 
@@ -272,13 +272,13 @@ TEST(SyLoggerTest, LogDirectory)
 
     // logName 只作为日志文件名（<logName>.log），不进目录路径；
     // 目录是 main 里 SetDefaultLogPath 设的默认目录。
-    EXPECT_TRUE(std::string(logDir).find("SanYiLogTests") != std::string::npos);
+    EXPECT_TRUE(std::string(logDir).find("AprLogTests") != std::string::npos);
     EXPECT_TRUE(std::filesystem::exists(std::filesystem::u8path(logDir) / "DirectoryTest.log"));
 }
 
-TEST(SyLoggerTest, CustomLogPath)
+TEST(AprLoggerTest, CustomLogPath)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
     // 使用用户临时目录，避免权限问题
     // 非 Windows 无 MAX_PATH（本测试此前从未在非 Win 平台编译过）；
@@ -287,9 +287,9 @@ TEST(SyLoggerTest, CustomLogPath)
 #ifdef _WIN32
     GetTempPathA(MAX_PATH, tempPath);
 #endif
-    std::string customPath = std::string(tempPath) + "SanYiLogs";
+    std::string customPath = std::string(tempPath) + "AprLogs";
 
-    SyLogConfig config;
+    AprLogConfig config;
     config.logName = "CustomPathTest";
     config.logPath = customPath.c_str();
 
@@ -299,12 +299,12 @@ TEST(SyLoggerTest, CustomLogPath)
 
     // 应该使用自定义路径
     EXPECT_TRUE(logDir != nullptr);
-    EXPECT_TRUE(std::string(logDir).find("SanYiLogs") != std::string::npos);
+    EXPECT_TRUE(std::string(logDir).find("AprLogs") != std::string::npos);
 }
 
-TEST(SyLoggerTest, CleanOldLogs)
+TEST(AprLoggerTest, CleanOldLogs)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
     logger.Initialize("CleanTest");
 
@@ -314,11 +314,11 @@ TEST(SyLoggerTest, CleanOldLogs)
 
 // ==================== 并发日志测试 ====================
 
-TEST(SyLoggerTest, ConcurrentLogging)
+TEST(AprLoggerTest, ConcurrentLogging)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
-    logger.Initialize("ConcurrentTest", SyLogLevel::Info);
+    logger.Initialize("ConcurrentTest", AprLogLevel::Info);
 
     const int NUM_THREADS = 4;
     const int MESSAGES_PER_THREAD = 10;
@@ -351,11 +351,11 @@ TEST(SyLoggerTest, ConcurrentLogging)
 
 // ==================== 性能测试 ====================
 
-TEST(SyLoggerTest, Performance)
+TEST(AprLoggerTest, Performance)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
-    logger.Initialize("PerformanceTest", SyLogLevel::Off);  // 关闭日志以提高性能
+    logger.Initialize("PerformanceTest", AprLogLevel::Off);  // 关闭日志以提高性能
 
     const int NUM_ITERATIONS = 1000;
 
@@ -377,12 +377,12 @@ TEST(SyLoggerTest, Performance)
 
 // ==================== 错误处理测试 ====================
 
-TEST(SyLoggerTest, ErrorHandling)
+TEST(AprLoggerTest, ErrorHandling)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
     // 测试无效的日志级别设置
-    EXPECT_NO_THROW(logger.SetLevel(static_cast<SyLogLevel>(100)));
+    EXPECT_NO_THROW(logger.SetLevel(static_cast<AprLogLevel>(100)));
 
     // 测试空字符串日志
     EXPECT_NO_THROW(logger.InfoStr(""));
@@ -405,70 +405,70 @@ TEST(SyLoggerTest, ErrorHandling)
 
 // ==================== 便捷宏测试 ====================
 
-TEST(SyLoggerMacroTest, StringMacros)
+TEST(AprLoggerMacroTest, StringMacros)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
-    logger.Initialize("MacroTest", SyLogLevel::Trace);
+    logger.Initialize("MacroTest", AprLogLevel::Trace);
 
     // 测试字符串宏
-    SY_TRACE("Trace macro message");
-    SY_DEBUG("Debug macro message");
-    SY_INFO("Info macro message");
-    SY_WARN("Warning macro message");
-    SY_ERROR("Error macro message");
-    SY_CRITICAL("Critical macro message");
+    APR_TRACE("Trace macro message");
+    APR_DEBUG("Debug macro message");
+    APR_INFO("Info macro message");
+    APR_WARN("Warning macro message");
+    APR_ERROR("Error macro message");
+    APR_CRITICAL("Critical macro message");
 }
 
 // ==================== 源位置日志测试 ====================
 
-TEST(SyLoggerTest, SourceLocationLogging)
+TEST(AprLoggerTest, SourceLocationLogging)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
-    logger.Initialize("SrcLocTest", SyLogLevel::Trace);
+    logger.Initialize("SrcLocTest", AprLogLevel::Trace);
 
     // 使用 LogSrc / LogFSrc
-    logger.LogSrc(SyLogLevel::Info, __FILE__, __LINE__, "LogSrc message");
-    logger.LogFSrc(SyLogLevel::Warn, __FILE__, __LINE__, "LogFSrc %s %d", "test", 42);
+    logger.LogSrc(AprLogLevel::Info, __FILE__, __LINE__, "LogSrc message");
+    logger.LogFSrc(AprLogLevel::Warn, __FILE__, __LINE__, "LogFSrc %s %d", "test", 42);
 
     // 使用宏（自动捕获源位置）
-    SY_TRACE("Source location via macro");
-    SY_INFO("Source location via macro");
-    SY_WARN("Source location via macro");
+    APR_TRACE("Source location via macro");
+    APR_INFO("Source location via macro");
+    APR_WARN("Source location via macro");
 
-    SY_TRACEF("Formatted %s via macro", "trace");
-    SY_INFOF("Formatted %s via macro", "info");
-    SY_ERRORF("Formatted %s=%d", "code", 500);
+    APR_TRACEF("Formatted %s via macro", "trace");
+    APR_INFOF("Formatted %s via macro", "info");
+    APR_ERRORF("Formatted %s=%d", "code", 500);
 }
 
-TEST(SyLoggerTest, LogSrcLevelFiltering)
+TEST(AprLoggerTest, LogSrcLevelFiltering)
 {
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
-    logger.Initialize("SrcFilterTest", SyLogLevel::Warn);
+    logger.Initialize("SrcFilterTest", AprLogLevel::Warn);
 
     // 这些应该被过滤掉（级别低于 Warn）
-    logger.LogSrc(SyLogLevel::Trace, __FILE__, __LINE__, "Should be filtered");
-    logger.LogSrc(SyLogLevel::Debug, __FILE__, __LINE__, "Should be filtered");
-    logger.LogSrc(SyLogLevel::Info, __FILE__, __LINE__, "Should be filtered");
+    logger.LogSrc(AprLogLevel::Trace, __FILE__, __LINE__, "Should be filtered");
+    logger.LogSrc(AprLogLevel::Debug, __FILE__, __LINE__, "Should be filtered");
+    logger.LogSrc(AprLogLevel::Info, __FILE__, __LINE__, "Should be filtered");
 
     // 这些应该被记录
-    logger.LogSrc(SyLogLevel::Warn, __FILE__, __LINE__, "Should be logged");
-    logger.LogSrc(SyLogLevel::Error, __FILE__, __LINE__, "Should be logged");
-    logger.LogSrc(SyLogLevel::Critical, __FILE__, __LINE__, "Should be logged");
+    logger.LogSrc(AprLogLevel::Warn, __FILE__, __LINE__, "Should be logged");
+    logger.LogSrc(AprLogLevel::Error, __FILE__, __LINE__, "Should be logged");
+    logger.LogSrc(AprLogLevel::Critical, __FILE__, __LINE__, "Should be logged");
 }
 
 // ==================== 速率限制测试 ====================
 
-TEST(SyLoggerTest, RateLimiting)
+TEST(AprLoggerTest, RateLimiting)
 {
-    SyLogConfig config;
+    AprLogConfig config;
     config.logName = "RateLimitTest";
-    config.level = SyLogLevel::Trace;
+    config.level = AprLogLevel::Trace;
     config.rateLimit = 5;
 
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
     logger.Initialize(config);
 
     // 连续写入 20 条，应该只有 5 条通过
@@ -481,12 +481,12 @@ TEST(SyLoggerTest, RateLimiting)
 
 // ==================== 内存管理测试 ====================
 
-TEST(SyLoggerTest, MemoryManagement)
+TEST(AprLoggerTest, MemoryManagement)
 {
     // 测试多次初始化和关闭
     for (int i = 0; i < 10; ++i)
     {
-        SyLogger& logger = SyLogger::GetInstance();
+        AprLogger& logger = AprLogger::GetInstance();
 
         std::string logName = "MemoryTest" + std::to_string(i);
         logger.Initialize(logName.c_str());
@@ -506,15 +506,15 @@ TEST(SyLoggerTest, MemoryManagement)
 
 // ==================== 集成测试 ====================
 
-TEST(SyLoggerIntegrationTest, CompleteWorkflow)
+TEST(AprLoggerIntegrationTest, CompleteWorkflow)
 {
     // 完整的日志系统工作流测试
-    SyLogger& logger = SyLogger::GetInstance();
+    AprLogger& logger = AprLogger::GetInstance();
 
     // 1. 初始化
-    SyLogConfig config;
+    AprLogConfig config;
     config.logName = "IntegrationTest";
-    config.level = SyLogLevel::Info;
+    config.level = AprLogLevel::Info;
     config.consoleEnable = true;
     config.fileEnable = true;
 
@@ -527,7 +527,7 @@ TEST(SyLoggerIntegrationTest, CompleteWorkflow)
     logger.ErrorStr("File not found");
 
     // 3. 更改配置
-    logger.SetLevel(SyLogLevel::Warn);
+    logger.SetLevel(AprLogLevel::Warn);
     logger.InfoStr("This info should now be filtered");
     logger.WarnStr("This warning should be logged");
 
@@ -549,48 +549,48 @@ TEST(SyLoggerIntegrationTest, CompleteWorkflow)
 
 // ==================== TraceContext ABI 测试 ====================
 
-TEST(SyTraceContextTest, EmptyStack)
+TEST(AprTraceContextTest, EmptyStack)
 {
-    SyTrace::popTraceId();
+    AprTrace::popTraceId();
     char buffer[128];
-    const size_t len = SyTrace::currentTraceId(buffer, sizeof(buffer));
+    const size_t len = AprTrace::currentTraceId(buffer, sizeof(buffer));
     EXPECT_EQ(len, 0u);
     EXPECT_STREQ(buffer, "");
-    EXPECT_TRUE(SyTrace::currentTraceIdString().empty());
+    EXPECT_TRUE(AprTrace::currentTraceIdString().empty());
 }
 
-TEST(SyTraceContextTest, PushPop)
+TEST(AprTraceContextTest, PushPop)
 {
-    SyTrace::pushTraceId("trace-1");
-    EXPECT_EQ(SyTrace::currentTraceIdString(), "trace-1");
-    SyTrace::pushTraceId("trace-2");
-    EXPECT_EQ(SyTrace::currentTraceIdString(), "trace-2");
-    SyTrace::popTraceId();
-    EXPECT_EQ(SyTrace::currentTraceIdString(), "trace-1");
-    SyTrace::popTraceId();
-    EXPECT_TRUE(SyTrace::currentTraceIdString().empty());
+    AprTrace::pushTraceId("trace-1");
+    EXPECT_EQ(AprTrace::currentTraceIdString(), "trace-1");
+    AprTrace::pushTraceId("trace-2");
+    EXPECT_EQ(AprTrace::currentTraceIdString(), "trace-2");
+    AprTrace::popTraceId();
+    EXPECT_EQ(AprTrace::currentTraceIdString(), "trace-1");
+    AprTrace::popTraceId();
+    EXPECT_TRUE(AprTrace::currentTraceIdString().empty());
 }
 
-TEST(SyTraceContextTest, ResolveTraceId)
+TEST(AprTraceContextTest, ResolveTraceId)
 {
     char buffer[128];
     // explicitId 优先
-    const size_t len = SyTrace::resolveTraceId("explicit-id", buffer, sizeof(buffer));
+    const size_t len = AprTrace::resolveTraceId("explicit-id", buffer, sizeof(buffer));
     EXPECT_EQ(len, 11u);
     EXPECT_STREQ(buffer, "explicit-id");
     // null/空串回退
-    EXPECT_STREQ(SyTrace::resolveTraceIdString(nullptr).c_str(), "");
-    SyTrace::pushTraceId("stack-id");
-    EXPECT_EQ(SyTrace::resolveTraceIdString(nullptr), "stack-id");
-    EXPECT_EQ(SyTrace::resolveTraceIdString(""), "stack-id");
-    SyTrace::popTraceId();
+    EXPECT_STREQ(AprTrace::resolveTraceIdString(nullptr).c_str(), "");
+    AprTrace::pushTraceId("stack-id");
+    EXPECT_EQ(AprTrace::resolveTraceIdString(nullptr), "stack-id");
+    EXPECT_EQ(AprTrace::resolveTraceIdString(""), "stack-id");
+    AprTrace::popTraceId();
 }
 
-TEST(SyTraceContextTest, PushIgnoresEmpty)
+TEST(AprTraceContextTest, PushIgnoresEmpty)
 {
-    SyTrace::pushTraceId("");
-    SyTrace::pushTraceId(nullptr);
-    EXPECT_TRUE(SyTrace::currentTraceIdString().empty());
+    AprTrace::pushTraceId("");
+    AprTrace::pushTraceId(nullptr);
+    EXPECT_TRUE(AprTrace::currentTraceIdString().empty());
 }
 
 // ==================== 主测试入口 ====================
@@ -603,10 +603,10 @@ int main(int argc, char** argv)
     // 调用方必须先 SetDefaultLogPath/SetLogPathCallback，否则
     // create_directories("") 抛 filesystem_error。测试统一落到临时目录。
     namespace fs = std::filesystem;
-    static const fs::path defaultLogDir = fs::temp_directory_path() / "SanYiLogTests";
+    static const fs::path defaultLogDir = fs::temp_directory_path() / "AprLogTests";
     std::error_code ec;
     fs::create_directories(defaultLogDir, ec);
-    SyLogger::SetDefaultLogPath(defaultLogDir.string().c_str());
+    AprLogger::SetDefaultLogPath(defaultLogDir.string().c_str());
 
     return RUN_ALL_TESTS();
 }

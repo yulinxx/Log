@@ -27,15 +27,15 @@
 #### 1. 初始化日志系统
 
 ```cpp
-#include "Log/SyLogger.h"
+#include "Log/AprLogger.h"
 
 // 方式一：简易初始化
-SyLogger::GetInstance().Initialize("MyApp");
+AprLogger::GetInstance().Initialize("MyApp");
 
 // 方式二：完整配置
-SyLogConfig config;
+AprLogConfig config;
 config.logName = "MyApp";
-config.level = SyLogLevel::Debug;
+config.level = AprLogLevel::Debug;
 config.consoleEnable = true;
 config.fileEnable = true;
 config.maxAgeDays = 30;
@@ -44,110 +44,110 @@ config.splitDebugLog = false;
 config.maxFileSize = 10 * 1024 * 1024;
 config.maxFiles = 10;
 config.rateLimit = 0;
-SyLogger::GetInstance().Initialize(config);
+AprLogger::GetInstance().Initialize(config);
 ```
 
 #### 2. 输出日志（推荐使用宏）
 
 ```cpp
 // 基础字符串日志（自动捕获 __FILE__ / __LINE__）
-SY_TRACE("跟踪信息");
-SY_DEBUG("调试信息");
-SY_INFO("一般信息");
-SY_WARN("警告");
-SY_ERROR("错误");
-SY_CRITICAL("严重错误");
+APR_TRACE("跟踪信息");
+APR_DEBUG("调试信息");
+APR_INFO("一般信息");
+APR_WARN("警告");
+APR_ERROR("错误");
+APR_CRITICAL("严重错误");
 
 // printf 风格格式化日志
-SY_INFOF("用户 %s 登录成功", username);
-SY_INFOF("处理 %d 条数据，耗时 %.2f 秒", count, elapsed);
-SY_ERRORF("错误码: %d, 详情: %s", code, detail);
+APR_INFOF("用户 %s 登录成功", username);
+APR_INFOF("处理 %d 条数据，耗时 %.2f 秒", count, elapsed);
+APR_ERRORF("错误码: %d, 详情: %s", code, detail);
 ```
 
 #### 3. 运行时控制
 
 ```cpp
 // 动态调整级别
-SyLogger::GetInstance().SetLevel(SyLogLevel::Warn);
+AprLogger::GetInstance().SetLevel(AprLogLevel::Warn);
 
 // 动态启用/禁用
-SyLogger::GetInstance().SetEnabled(false);
-SyLogger::GetInstance().SetEnabled(true);
+AprLogger::GetInstance().SetEnabled(false);
+AprLogger::GetInstance().SetEnabled(true);
 
 // 检查状态
-SyLogLevel currentLevel = SyLogger::GetInstance().GetLevel();
-bool isEnabled = SyLogger::GetInstance().IsEnabled();
+AprLogLevel currentLevel = AprLogger::GetInstance().GetLevel();
+bool isEnabled = AprLogger::GetInstance().IsEnabled();
 ```
 
 #### 4. 关闭日志系统
 
 ```cpp
-SyLogger::GetInstance().Shutdown();
+AprLogger::GetInstance().Shutdown();
 ```
 
-### C API 使用方法（SyLoggerDLL.h）
+### C API 使用方法（AprLoggerDLL.h）
 
-`SyLoggerDLL.h` 提供了独立的 C 语言接口，适用于跨编译器、跨运行时的进程间调用场景。
+`AprLoggerDLL.h` 提供了独立的 C 语言接口，适用于跨编译器、跨运行时的进程间调用场景。
 
 #### 初始化与关闭
 
 ```c
-#include "Log/SyLoggerDLL.h"
+#include "Log/AprLoggerDLL.h"
 
 // 简易初始化
-SyLoggerDLL_Initialize("MyApp", 1, true, true);
+AprLoggerDLL_Initialize("MyApp", 1, true, true);
 
 // 完整配置初始化
-SyLogConfig config;
+AprLogConfig config;
 config.logName = "MyApp";
 config.level = 2;  // Info
-SyLoggerDLL_InitializeWithConfig(&config);
+AprLoggerDLL_InitializeWithConfig(&config);
 
 // 关闭
-SyLoggerDLL_Shutdown();
+AprLoggerDLL_Shutdown();
 ```
 
 #### 日志输出
 
 ```c
 // 简单日志
-SyLoggerDLL_Trace("跟踪信息");
-SyLoggerDLL_Debug("调试信息");
-SyLoggerDLL_Info("一般信息");
-SyLoggerDLL_Warn("警告");
-SyLoggerDLL_Error("错误");
-SyLoggerDLL_Critical("严重错误");
+AprLoggerDLL_Trace("跟踪信息");
+AprLoggerDLL_Debug("调试信息");
+AprLoggerDLL_Info("一般信息");
+AprLoggerDLL_Warn("警告");
+AprLoggerDLL_Error("错误");
+AprLoggerDLL_Critical("严重错误");
 
 // 格式化日志
-SyLoggerDLL_InfoF("用户 %s 登录成功", username);
-SyLoggerDLL_ErrorF("错误码: %d", code);
+AprLoggerDLL_InfoF("用户 %s 登录成功", username);
+AprLoggerDLL_ErrorF("错误码: %d", code);
 
 // 带源代码位置的日志
-SyLoggerDLL_LogSrc(2, __FILE__, __LINE__, "带源位置的日志");
-SyLoggerDLL_LogFSrc(2, __FILE__, __LINE__, "格式化 %s", "参数");
+AprLoggerDLL_LogSrc(2, __FILE__, __LINE__, "带源位置的日志");
+AprLoggerDLL_LogFSrc(2, __FILE__, __LINE__, "格式化 %s", "参数");
 ```
 
 #### 控制接口
 
 ```c
-SyLoggerDLL_SetLevel(3);       // 设置级别: 0=Trace, 1=Debug, 2=Info, 3=Warn, 4=Error, 5=Critical
-SyLoggerDLL_SetEnabled(true);
-bool enabled = SyLoggerDLL_IsEnabled();
-SyLoggerDLL_CleanOldLogs();
-const char* logDir = SyLoggerDLL_GetLogDirectory();
+AprLoggerDLL_SetLevel(3);       // 设置级别: 0=Trace, 1=Debug, 2=Info, 3=Warn, 4=Error, 5=Critical
+AprLoggerDLL_SetEnabled(true);
+bool enabled = AprLoggerDLL_IsEnabled();
+AprLoggerDLL_CleanOldLogs();
+const char* logDir = AprLoggerDLL_GetLogDirectory();
 ```
 
 #### C++ 包装器
 
-C++ 项目中推荐使用 `SyLoggerDLLWrapper` 类，它封装了 C API 调用并提供更便捷的使用方式：
+C++ 项目中推荐使用 `AprLoggerDLLWrapper` 类，它封装了 C API 调用并提供更便捷的使用方式：
 
 ```cpp
-#include "Log/SyLoggerDLL.h"
+#include "Log/AprLoggerDLL.h"
 
-SyLoggerDLLWrapper::GetInstance().Initialize("MyApp");
-SyLoggerDLLWrapper::GetInstance().Info("日志消息");
-SyLoggerDLLWrapper::GetInstance().InfoF("格式化 %s", "参数");
-SyLoggerDLLWrapper::GetInstance().Shutdown();
+AprLoggerDLLWrapper::GetInstance().Initialize("MyApp");
+AprLoggerDLLWrapper::GetInstance().Info("日志消息");
+AprLoggerDLLWrapper::GetInstance().InfoF("格式化 %s", "参数");
+AprLoggerDLLWrapper::GetInstance().Shutdown();
 ```
 
 ---
@@ -156,37 +156,37 @@ SyLoggerDLLWrapper::GetInstance().Shutdown();
 
 ### 单例模式
 
-`SyLogger` 采用单例模式，全局只有一个日志器实例：
+`AprLogger` 采用单例模式，全局只有一个日志器实例：
 
 ```cpp
-class LOG_API SyLogger
+class LOG_API AprLogger
 {
 public:
-    static SyLogger& GetInstance();
+    static AprLogger& GetInstance();
     // ...
 private:
-    SyLogger();
-    ~SyLogger();
-    SyLogger(const SyLogger&) = delete;
-    SyLogger& operator=(const SyLogger&) = delete;
+    AprLogger();
+    ~AprLogger();
+    AprLogger(const AprLogger&) = delete;
+    AprLogger& operator=(const AprLogger&) = delete;
 };
 ```
 
-通过 `static SyLogger instance` 实现线程安全的局部静态变量单例。
+通过 `static AprLogger instance` 实现线程安全的局部静态变量单例。
 
-### 日志配置 (SyLogConfig)
+### 日志配置 (AprLogConfig)
 
-`SyLogConfig` 采用两层结构分离设计：
+`AprLogConfig` 采用两层结构分离设计：
 
-- **导出层**：`SyLogConfig` 使用 `const char*` 字符串，确保 ABI 兼容性
-- **内部层**：`SyLogConfigInternal` 使用 `std::string`，提供更好的内存管理
+- **导出层**：`AprLogConfig` 使用 `const char*` 字符串，确保 ABI 兼容性
+- **内部层**：`AprLogConfigInternal` 使用 `std::string`，提供更好的内存管理
 
 ```cpp
-struct SyLogConfig
+struct AprLogConfig
 {
-    const char* logName = "SanYi";
+    const char* logName = "April";
     const char* logPath = "";
-    SyLogLevel level = SyLogLevel::Debug;
+    AprLogLevel level = AprLogLevel::Debug;
     bool consoleEnable = true;
     bool fileEnable = true;
     int maxAgeDays = 30;
@@ -198,16 +198,16 @@ struct SyLogConfig
     size_t asyncQueueSize = 8192;
     size_t asyncThreads = 1;
 
-    operator SyLogConfigInternal() const;
+    operator AprLogConfigInternal() const;
 };
 ```
 
-通过 `operator SyLogConfigInternal()` 转换运算符，在初始化时将导出层配置转换为内部使用的配置结构。
+通过 `operator AprLogConfigInternal()` 转换运算符，在初始化时将导出层配置转换为内部使用的配置结构。
 
-### 日志级别 (SyLogLevel)
+### 日志级别 (AprLogLevel)
 
 ```cpp
-enum class SyLogLevel
+enum class AprLogLevel
 {
     Trace = 0,      // 最详细跟踪
     Debug = 1,      // 调试信息
@@ -221,12 +221,12 @@ enum class SyLogLevel
 
 日志级别映射到 spdlog 级别枚举，支持运行时动态调整。
 
-### 日志上下文 (SyTraceContext)
+### 日志上下文 (AprTraceContext)
 
 跨模块 TraceId 传播机制，使用 thread-local 栈实现：
 
 ```cpp
-namespace SyTrace
+namespace AprTrace
 {
     LOG_API void pushTraceId(const char* traceId);
     LOG_API void popTraceId();
@@ -255,8 +255,8 @@ namespace SyTrace
 
 **具体实现：**
 
-1. **pImpl 模式**：`SyLogger` 使用 `SyLoggerImpl*`（原始指针）而非 `std::unique_ptr`，避免 MSVC C4251 警告（导出类中的 `std::unique_ptr<前置声明类型>` 模板实例无法跨 DLL 边界安全销毁）
-2. **配置转换**：`SyLogConfig`（导出层）通过转换运算符转换为 `SyLogConfigInternal`（内部层）
+1. **pImpl 模式**：`AprLogger` 使用 `AprLoggerImpl*`（原始指针）而非 `std::unique_ptr`，避免 MSVC C4251 警告（导出类中的 `std::unique_ptr<前置声明类型>` 模板实例无法跨 DLL 边界安全销毁）
+2. **配置转换**：`AprLogConfig`（导出层）通过转换运算符转换为 `AprLogConfigInternal`（内部层）
 3. **内存管理**：`GetLogDirectory()` 和 `GetDefaultLogPath()` 使用 `static std::string` 缓存返回值，确保返回的 `const char*` 指针在调用期间有效
 
 ---
@@ -373,23 +373,23 @@ option(BUILD_LOG_EXAMPLE "Build Log usage example" ON)
 
 ## API 概要
 
-### SyLogger 类主要方法
+### AprLogger 类主要方法
 
 #### 生命周期
 
 | 方法 | 说明 |
 |------|------|
-| `static SyLogger& GetInstance()` | 获取单例实例 |
-| `void Initialize(const SyLogConfig& config)` | 使用配置结构体初始化 |
-| `void Initialize(const char* logName, SyLogLevel level, bool console, bool file)` | 使用简化参数初始化 |
+| `static AprLogger& GetInstance()` | 获取单例实例 |
+| `void Initialize(const AprLogConfig& config)` | 使用配置结构体初始化 |
+| `void Initialize(const char* logName, AprLogLevel level, bool console, bool file)` | 使用简化参数初始化 |
 | `void Shutdown()` | 关闭日志系统，刷新缓冲区 |
 
 #### 级别控制
 
 | 方法 | 说明 |
 |------|------|
-| `void SetLevel(SyLogLevel level)` | 设置日志级别 |
-| `SyLogLevel GetLevel() const` | 获取当前日志级别 |
+| `void SetLevel(AprLogLevel level)` | 设置日志级别 |
+| `AprLogLevel GetLevel() const` | 获取当前日志级别 |
 | `void SetEnabled(bool enabled)` | 启用/禁用日志 |
 | `bool IsEnabled() const` | 检查日志是否启用 |
 
@@ -397,9 +397,9 @@ option(BUILD_LOG_EXAMPLE "Build Log usage example" ON)
 
 | 方法 | 说明 |
 |------|------|
-| `void LogSrc(SyLogLevel level, const char* file, int line, const char* msg)` | 带源位置的字符串日志 |
-| `void LogSrc(SyLogLevel level, const char* file, int line, const std::string& msg)` | 带源位置的 std::string 日志（内联） |
-| `void LogFSrc(SyLogLevel level, const char* file, int line, const char* fmt, ...)` | 带源位置的格式化日志 |
+| `void LogSrc(AprLogLevel level, const char* file, int line, const char* msg)` | 带源位置的字符串日志 |
+| `void LogSrc(AprLogLevel level, const char* file, int line, const std::string& msg)` | 带源位置的 std::string 日志（内联） |
+| `void LogFSrc(AprLogLevel level, const char* file, int line, const char* fmt, ...)` | 带源位置的格式化日志 |
 
 #### 日志输出（不带源位置）
 
@@ -430,86 +430,86 @@ option(BUILD_LOG_EXAMPLE "Build Log usage example" ON)
 
 ### C API 函数
 
-#### SyLogger.h 中的 C API
+#### AprLogger.h 中的 C API
 
 ```c
-void SyLog_Init(const char* logName, int level, bool console, bool file);
-void SyLog_Shutdown();
-void SyLog_SetLevel(int level);
-void SyLog_SetEnabled(bool enabled);
+void AprLog_Init(const char* logName, int level, bool console, bool file);
+void AprLog_Shutdown();
+void AprLog_SetLevel(int level);
+void AprLog_SetEnabled(bool enabled);
 
-void SyLog_Trace(const char* msg);
-void SyLog_Debug(const char* msg);
-void SyLog_Info(const char* msg);
-void SyLog_Warn(const char* msg);
-void SyLog_Error(const char* msg);
-void SyLog_Critical(const char* msg);
+void AprLog_Trace(const char* msg);
+void AprLog_Debug(const char* msg);
+void AprLog_Info(const char* msg);
+void AprLog_Warn(const char* msg);
+void AprLog_Error(const char* msg);
+void AprLog_Critical(const char* msg);
 ```
 
-#### SyLoggerDLL.h 中的 C API（完整版本）
+#### AprLoggerDLL.h 中的 C API（完整版本）
 
 ##### 初始化与配置
 
 ```c
-void SyLoggerDLL_Initialize(const char* logName, int level, bool console, bool file);
-void SyLoggerDLL_InitializeWithConfig(const SyLogConfig* config);
-void SyLoggerDLL_Shutdown();
-void SyLoggerDLL_SetLevel(int level);
-void SyLoggerDLL_SetEnabled(bool enabled);
-bool SyLoggerDLL_IsEnabled();
+void AprLoggerDLL_Initialize(const char* logName, int level, bool console, bool file);
+void AprLoggerDLL_InitializeWithConfig(const AprLogConfig* config);
+void AprLoggerDLL_Shutdown();
+void AprLoggerDLL_SetLevel(int level);
+void AprLoggerDLL_SetEnabled(bool enabled);
+bool AprLoggerDLL_IsEnabled();
 ```
 
 ##### 文件管理
 
 ```c
-void SyLoggerDLL_CleanOldLogs();
-const char* SyLoggerDLL_GetLogDirectory();
-void SyLoggerDLL_SetDefaultLogPath(const char* path);
-const char* SyLoggerDLL_GetDefaultLogPath();
+void AprLoggerDLL_CleanOldLogs();
+const char* AprLoggerDLL_GetLogDirectory();
+void AprLoggerDLL_SetDefaultLogPath(const char* path);
+const char* AprLoggerDLL_GetDefaultLogPath();
 ```
 
 ##### 日志输出
 
 ```c
-void SyLoggerDLL_Trace(const char* msg);
-void SyLoggerDLL_Debug(const char* msg);
-void SyLoggerDLL_Info(const char* msg);
-void SyLoggerDLL_Warn(const char* msg);
-void SyLoggerDLL_Error(const char* msg);
-void SyLoggerDLL_Critical(const char* msg);
+void AprLoggerDLL_Trace(const char* msg);
+void AprLoggerDLL_Debug(const char* msg);
+void AprLoggerDLL_Info(const char* msg);
+void AprLoggerDLL_Warn(const char* msg);
+void AprLoggerDLL_Error(const char* msg);
+void AprLoggerDLL_Critical(const char* msg);
 
-void SyLoggerDLL_TraceF(const char* fmt, ...);
-void SyLoggerDLL_DebugF(const char* fmt, ...);
-void SyLoggerDLL_InfoF(const char* fmt, ...);
-void SyLoggerDLL_WarnF(const char* fmt, ...);
-void SyLoggerDLL_ErrorF(const char* fmt, ...);
-void SyLoggerDLL_CriticalF(const char* fmt, ...);
+void AprLoggerDLL_TraceF(const char* fmt, ...);
+void AprLoggerDLL_DebugF(const char* fmt, ...);
+void AprLoggerDLL_InfoF(const char* fmt, ...);
+void AprLoggerDLL_WarnF(const char* fmt, ...);
+void AprLoggerDLL_ErrorF(const char* fmt, ...);
+void AprLoggerDLL_CriticalF(const char* fmt, ...);
 
-void SyLoggerDLL_LogSrc(int level, const char* file, int line, const char* msg);
-void SyLoggerDLL_LogFSrc(int level, const char* file, int line, const char* fmt, ...);
+void AprLoggerDLL_LogSrc(int level, const char* file, int line, const char* msg);
+void AprLoggerDLL_LogFSrc(int level, const char* file, int line, const char* fmt, ...);
 ```
 
 ### 日志宏
 
 ```cpp
 // 字符串日志宏（自动捕获源位置）
-SY_TRACE(msg)
-SY_DEBUG(msg)
-SY_INFO(msg)
-SY_WARN(msg)
-SY_ERROR(msg)
-SY_CRITICAL(msg)
+APR_TRACE(msg)
+APR_DEBUG(msg)
+APR_INFO(msg)
+APR_WARN(msg)
+APR_ERROR(msg)
+APR_CRITICAL(msg)
 
 // 格式化日志宏（自动捕获源位置）
-SY_TRACEF(...)
-SY_DEBUGF(...)
-SY_INFOF(...)
-SY_WARNF(...)
-SY_ERRORF(...)
-SY_CRITICALF(...)
+APR_TRACEF(...)
+APR_DEBUGF(...)
+APR_INFOF(...)
+APR_WARNF(...)
+APR_ERRORF(...)
+APR_CRITICALF(...)
 ```
 
-### SyTrace 命名空间 API
+### AprTrace 命名空间 API
 
 ```cpp
 void pushTraceId(const char* traceId);
@@ -542,30 +542,30 @@ std::string resolveTraceIdString(const char* explicitId = nullptr);
 
 **关键实现：**
 
-1. **SyLogConfig 导出层**：使用 `const char*` 字符串
+1. **AprLogConfig 导出层**：使用 `const char*` 字符串
    ```cpp
-   struct LOG_API SyLogConfig
+   struct LOG_API AprLogConfig
    {
        const char* logName;  // 导出层使用 const char*
-       operator SyLogConfigInternal() const;  // 转换到内部层
+       operator AprLogConfigInternal() const;  // 转换到内部层
    };
    ```
 
-2. **SyLogConfigInternal 内部层**：使用 `std::string`
+2. **AprLogConfigInternal 内部层**：使用 `std::string`
    ```cpp
-   struct SyLogConfigInternal
+   struct AprLogConfigInternal
    {
        std::string logName;  // 内部使用 std::string
        // ...
    };
    ```
 
-3. **SyLogger 类**：使用 pImpl 模式，导出类只包含原始指针
+3. **AprLogger 类**：使用 pImpl 模式，导出类只包含原始指针
    ```cpp
-   class LOG_API SyLogger
+   class LOG_API AprLogger
    {
    private:
-       SyLoggerImpl* m_impl;  // 原始指针，避免 unique_ptr 的 C4251 警告
+       AprLoggerImpl* m_impl;  // 原始指针，避免 unique_ptr 的 C4251 警告
    };
    ```
 
@@ -574,10 +574,10 @@ std::string resolveTraceIdString(const char* explicitId = nullptr);
 对于需要跨 DLL 边界的轻量级接口，使用内联函数模式：
 
 ```cpp
-// SyLogConfig 中的转换运算符在 DLL 边界内联执行
-operator SyLogConfigInternal() const
+// AprLogConfig 中的转换运算符在 DLL 边界内联执行
+operator AprLogConfigInternal() const
 {
-    SyLogConfigInternal internal;
+    AprLogConfigInternal internal;
     internal.logName = logName ? logName : "";  // 在调用方进程内完成转换
     // ...
     return internal;
@@ -589,7 +589,7 @@ operator SyLogConfigInternal() const
 对于返回字符串指针的接口，使用静态缓冲区确保指针有效性：
 
 ```cpp
-const char* SyLogger::GetLogDirectory() const
+const char* AprLogger::GetLogDirectory() const
 {
     static std::string cachedPath;  // 静态局部变量，生命周期与程序一致
     cachedPath = m_impl->m_config.logPath;

@@ -1,32 +1,32 @@
 #pragma once
 
 /**
- * @file SyPerfCounter.h
+ * @file AprPerfCounter.h
  * @brief 轻量级性能计数器与监控基础设施
  *
  * 提供：
  * - 帧耗时追踪（FrameTimer）
  * - 操作耗时 RAII 作用域计时（ScopedPerfTimer）
  * - 累计统计（PerfStats）
- * - 定期自动上报（与 SyLogger 集成）
+ * - 定期自动上报（与 AprLogger 集成）
  *
  * 设计要点：
  *  - 零虚函数，纯 POD 统计结构，跨 DLL 安全
- *  - 编译期可通过 SY_PERF_ENABLED 宏整体关闭
+ *  - 编译期可通过 APR_PERF_ENABLED 宏整体关闭
  *  - 所有时钟使用 std::chrono::high_resolution_clock
  */
 
 #include "LogAPI.h"
-#include "Log/SyLogger.h"
+#include "Log/AprLogger.h"
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
 
-#ifndef SY_PERF_ENABLED
+#ifndef APR_PERF_ENABLED
     #ifdef NDEBUG
-        #define SY_PERF_ENABLED 0
+        #define APR_PERF_ENABLED 0
     #else
-        #define SY_PERF_ENABLED 1
+        #define APR_PERF_ENABLED 1
     #endif
 #endif
 
@@ -116,7 +116,7 @@ public:
             avgFrameMs(),
             m_minMs,
             m_maxMs);
-        SyLogger::GetInstance().InfoStr(buf);
+        AprLogger::GetInstance().InfoStr(buf);
     }
 
     void reset()
@@ -139,7 +139,7 @@ private:
 
 
 
-#if SY_PERF_ENABLED
+#if APR_PERF_ENABLED
 
 class ScopedPerfTimer
 {
@@ -196,20 +196,20 @@ private:
     ///
     /// 必须三级宏中转：`_sy_perf_timer_##__LINE__` 里 ## 的粘贴发生在
     /// 参数展开之前，得到的是字面 `_sy_perf_timer___LINE__` —— 同一函数体内
-    /// 写两个 SY_PERF_SCOPE 会撞成同一个变量名（重复定义）。
+    /// 写两个 APR_PERF_SCOPE 会撞成同一个变量名（重复定义）。
     /// 而两级中转也不够：__LINE__ 是本宏替换文本里引入的（不是调用点参数），
     /// 传入含 ## 的下一层时同样被抑制展开。中间层（XPAND）参数不参与 ##，
     /// 强制把 __LINE__ 预展开成行号，最后一层再粘贴。
-    #define SY_PERF_SCOPE_IMPL(name, line)  ScopedPerfTimer _sy_perf_timer_##line(name)
-    #define SY_PERF_SCOPE_XPAND(name, line) SY_PERF_SCOPE_IMPL(name, line)
-    #define SY_PERF_SCOPE(name)             SY_PERF_SCOPE_XPAND(name, __LINE__)
+    #define APR_PERF_SCOPE_IMPL(name, line)  ScopedPerfTimer _sy_perf_timer_##line(name)
+    #define APR_PERF_SCOPE_XPAND(name, line) APR_PERF_SCOPE_IMPL(name, line)
+    #define APR_PERF_SCOPE(name)             APR_PERF_SCOPE_XPAND(name, __LINE__)
 
-    /// 便捷宏：统计指定代码块的耗时并写入累计统计（同 SY_PERF_SCOPE 的三级中转）
-    #define SY_PERF_SCOPE_STATS_IMPL(name, line, statsPtr)  ScopedPerfTimer _sy_perf_timer_##line(name, statsPtr)
-    #define SY_PERF_SCOPE_STATS_XPAND(name, line, statsPtr) SY_PERF_SCOPE_STATS_IMPL(name, line, statsPtr)
-    #define SY_PERF_SCOPE_STATS(name, statsPtr)             SY_PERF_SCOPE_STATS_XPAND(name, __LINE__, statsPtr)
+    /// 便捷宏：统计指定代码块的耗时并写入累计统计（同 APR_PERF_SCOPE 的三级中转）
+    #define APR_PERF_SCOPE_STATS_IMPL(name, line, statsPtr)  ScopedPerfTimer _sy_perf_timer_##line(name, statsPtr)
+    #define APR_PERF_SCOPE_STATS_XPAND(name, line, statsPtr) APR_PERF_SCOPE_STATS_IMPL(name, line, statsPtr)
+    #define APR_PERF_SCOPE_STATS(name, statsPtr)             APR_PERF_SCOPE_STATS_XPAND(name, __LINE__, statsPtr)
 
-#else  // !SY_PERF_ENABLED
+#else  // !APR_PERF_ENABLED
 
 class ScopedPerfTimer
 {
@@ -217,21 +217,21 @@ public:
     explicit ScopedPerfTimer(const char*, PerfStats* = nullptr) {}
 };
 
-    #define SY_PERF_SCOPE(name)              ((void)0)
-    #define SY_PERF_SCOPE_STATS(name, stats) ((void)0)
+    #define APR_PERF_SCOPE(name)              ((void)0)
+    #define APR_PERF_SCOPE_STATS(name, stats) ((void)0)
 
-#endif  // SY_PERF_ENABLED
+#endif  // APR_PERF_ENABLED
 
 
 
-#if SY_PERF_ENABLED
+#if APR_PERF_ENABLED
 
-    /// 测量一个代码块的耗时，超过阈值时输出 SY_WARNF
-    /// 用法: SY_PERF_BLOCK("render", 16.0) { ... }
+    /// 测量一个代码块的耗时，超过阈值时输出 APR_WARNF
+    /// 用法: APR_PERF_BLOCK("render", 16.0) { ... }
     ///
-    /// 同 SY_PERF_SCOPE：## 粘贴阻止 __LINE__ 展开，需三级宏中转（见上）。
+    /// 同 APR_PERF_SCOPE：## 粘贴阻止 __LINE__ 展开，需三级宏中转（见上）。
     /// for 的作用域隔离让同名问题平时不炸，但搬进同一作用域就会重复定义。
-    #define SY_PERF_BLOCK_IMPL(name, thresholdMs, line)                                                         \
+    #define APR_PERF_BLOCK_IMPL(name, thresholdMs, line)                                                         \
         for (struct {                                                                                           \
                  const char* _n;                                                                                \
                  double _t;                                                                                     \
@@ -247,24 +247,24 @@ public:
                      {                                                                                          \
                          char _buf[256];                                                                        \
                          snprintf(_buf, sizeof(_buf), "[PERF] %s: %.2f ms (threshold %.1f ms)", _n, _ms, (_t)); \
-                         SyLogger::GetInstance().WarnStr(_buf);                                                 \
+                         AprLogger::GetInstance().WarnStr(_buf);                                                 \
                      }                                                                                          \
                  }                                                                                              \
              } _sy_perf_block_##line{ name, thresholdMs, false, std::chrono::high_resolution_clock::now() };    \
             !_sy_perf_block_##line._done;                                                                       \
             _sy_perf_block_##line._done = true)
-    #define SY_PERF_BLOCK_XPAND(name, thresholdMs, line) SY_PERF_BLOCK_IMPL(name, thresholdMs, line)
-    #define SY_PERF_BLOCK(name, thresholdMs)             SY_PERF_BLOCK_XPAND(name, thresholdMs, __LINE__)
+    #define APR_PERF_BLOCK_XPAND(name, thresholdMs, line) APR_PERF_BLOCK_IMPL(name, thresholdMs, line)
+    #define APR_PERF_BLOCK(name, thresholdMs)             APR_PERF_BLOCK_XPAND(name, thresholdMs, __LINE__)
 
 #else
 
-    #define SY_PERF_BLOCK(name, thresholdMs) \
+    #define APR_PERF_BLOCK(name, thresholdMs) \
         if (true)                            \
         {                                    \
         }                                    \
         else
 
-#endif  // SY_PERF_ENABLED
+#endif  // APR_PERF_ENABLED
 
 
 

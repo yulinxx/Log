@@ -1,17 +1,17 @@
-add_executable(SyLogExample
+add_executable(AprLogExample
     main.cpp
 )
 
-target_compile_features(SyLogExample PRIVATE cxx_std_17)
+target_compile_features(AprLogExample PRIVATE cxx_std_17)
 
-target_link_libraries(SyLogExample PRIVATE
+target_link_libraries(AprLogExample PRIVATE
     Log
 )
 
 if(MSVC)
-    target_compile_options(SyLogExample PRIVATE /utf-8)
+    target_compile_options(AprLogExample PRIVATE /utf-8)
 endif()
 
-set_target_properties(SyLogExample PROPERTIES FOLDER "Examples")
+set_target_properties(AprLogExample PROPERTIES FOLDER "Examples")
 
-message(STATUS "  Example: SyLogExample")
+message(STATUS "  Example: AprLogExample")

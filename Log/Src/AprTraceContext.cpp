@@ -1,9 +1,9 @@
-#include "Log/SyTraceContext.h"
+#include "Log/AprTraceContext.h"
 
 #include <cstring>
 #include <vector>
 
-namespace SyTrace
+namespace AprTrace
 {
     namespace
     {
@@ -64,4 +64,4 @@ namespace SyTrace
         }
         return currentTraceId(buffer, bufferSize);
     }
-}  // namespace SyTrace
+}  // namespace AprTrace

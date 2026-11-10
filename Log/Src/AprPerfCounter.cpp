@@ -1,16 +1,16 @@
 /**
- * @file SyPerfCounter.cpp
+ * @file AprPerfCounter.cpp
  * @brief 性能计数器实现（ScopedPerfTimer::reportSlow）
  */
 
-#include "Log/SyPerfCounter.h"
-#include "Log/SyLogger.h"
+#include "Log/AprPerfCounter.h"
+#include "Log/AprLogger.h"
 
 #include <cstdio>
 
-#if SY_PERF_ENABLED
+#if APR_PERF_ENABLED
 void ScopedPerfTimer::reportSlow(const char* msg)
 {
-    SyLogger::GetInstance().WarnStr(msg);
+    AprLogger::GetInstance().WarnStr(msg);
 }
 #endif

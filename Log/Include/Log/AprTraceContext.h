@@ -15,7 +15,7 @@
  * （const char* + size）形式；下方 currentTraceIdString / resolveTraceIdString
  * 为 header 内联便捷包装，编译进调用方，不跨 DLL 边界。
  */
-namespace SyTrace
+namespace AprTrace
 {
     /** @brief 入栈（拷贝 traceId）；null/空串忽略 */
     LOG_API void pushTraceId(const char* traceId);
@@ -56,4 +56,4 @@ namespace SyTrace
 
     /** @brief HTTP 头名称，供 Network 模块统一使用 */
     inline constexpr const char* kTraceHeaderName = "X-Trace-Id";
-}  // namespace SyTrace
+}  // namespace AprTrace

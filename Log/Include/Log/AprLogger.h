@@ -20,18 +20,18 @@
 // MSVC：SAL 的 _Printf_format_string_，在 /analyze 静态分析下生效。
 // ---------------------------------------------------------------------------
 #if defined(__GNUC__) || defined(__clang__)
-    #define SYLOG_PRINTF_FMT(fmtIndex, firstArgIndex) __attribute__((format(printf, fmtIndex, firstArgIndex)))
+    #define APRLOG_PRINTF_FMT(fmtIndex, firstArgIndex) __attribute__((format(printf, fmtIndex, firstArgIndex)))
 #else
-    #define SYLOG_PRINTF_FMT(fmtIndex, firstArgIndex)
+    #define APRLOG_PRINTF_FMT(fmtIndex, firstArgIndex)
 #endif
 
 #if defined(_MSC_VER)
-    #define SYLOG_FMT_STR _Printf_format_string_
+    #define APRLOG_FMT_STR _Printf_format_string_
 #else
-    #define SYLOG_FMT_STR
+    #define APRLOG_FMT_STR
 #endif
 
-enum class SyLogLevel
+enum class AprLogLevel
 {
     Trace = 0,
     Debug = 1,
@@ -43,15 +43,15 @@ enum class SyLogLevel
 };
 
 // DLL 版本查询：用于启动时检查 Log.dll 与调用方是否匹配
-// 声明为 C 链接（extern "C"），与 SyLogger.cpp 中的定义保持一致
-extern "C" LOG_API uint32_t SyLog_GetVersion(void);
-extern "C" LOG_API const char* SyLog_GetVersionString(void);
+// 声明为 C 链接（extern "C"），与 AprLogger.cpp 中的定义保持一致
+extern "C" LOG_API uint32_t AprLog_GetVersion(void);
+extern "C" LOG_API const char* AprLog_GetVersionString(void);
 
-struct SyLogConfigInternal
+struct AprLogConfigInternal
 {
     std::string logName = "";
     std::string logPath = "";
-    SyLogLevel level = SyLogLevel::Debug;
+    AprLogLevel level = AprLogLevel::Debug;
     bool consoleEnable = true;
     bool fileEnable = true;
     int maxAgeDays = 30;
@@ -67,11 +67,11 @@ struct SyLogConfigInternal
     size_t asyncThreads = 1;
 };
 
-struct LOG_API SyLogConfig
+struct LOG_API AprLogConfig
 {
-    const char* logName = "SanYiCAD";
+    const char* logName = "April";
     const char* logPath = "";
-    SyLogLevel level = SyLogLevel::Debug;
+    AprLogLevel level = AprLogLevel::Debug;
     bool consoleEnable = true;
     bool fileEnable = true;
     int maxAgeDays = 30;
@@ -86,9 +86,9 @@ struct LOG_API SyLogConfig
     size_t asyncQueueSize = 8192;
     size_t asyncThreads = 1;
 
-    operator SyLogConfigInternal() const
+    operator AprLogConfigInternal() const
     {
-        SyLogConfigInternal internal;
+        AprLogConfigInternal internal;
         internal.logName = logName ? logName : "";
         internal.logPath = logPath ? logPath : "";
         internal.level = level;
@@ -106,21 +106,21 @@ struct LOG_API SyLogConfig
     }
 };
 
-class SyLoggerImpl;
+class AprLoggerImpl;
 
 // pImpl：使用原始指针而非 std::unique_ptr，避免 MSVC C4251（导出类中的
 // std::unique_ptr<前置声明类型> 模板实例无法跨 DLL 边界安全销毁）
-class LOG_API SyLogger
+class LOG_API AprLogger
 {
 public:
-    static SyLogger& GetInstance();
-    SyLogger(const SyLogger&) = delete;
-    SyLogger& operator=(const SyLogger&) = delete;
+    static AprLogger& GetInstance();
+    AprLogger(const AprLogger&) = delete;
+    AprLogger& operator=(const AprLogger&) = delete;
 
 public:
-    void Initialize(const SyLogConfig& config);
+    void Initialize(const AprLogConfig& config);
     void Initialize(const char* logName = "",
-        SyLogLevel level = SyLogLevel::Debug,
+        AprLogLevel level = AprLogLevel::Debug,
         bool consoleEnable = true,
         bool fileEnable = true);
 
@@ -135,8 +135,8 @@ public:
     /// 可重入且对未初始化的 logger 安全（此时为空操作）。
     void Flush();
 
-    void SetLevel(SyLogLevel level);
-    SyLogLevel GetLevel() const;
+    void SetLevel(AprLogLevel level);
+    AprLogLevel GetLevel() const;
 
     void SetEnabled(bool enabled);
     bool IsEnabled() const;
@@ -157,41 +157,41 @@ public:
     void ErrorStr(const char* msg);
     void CriticalStr(const char* msg);
 
-    void TraceF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
-    void DebugF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
-    void InfoF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
-    void WarnF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
-    void ErrorF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
-    void CriticalF(SYLOG_FMT_STR const char* fmt, ...) SYLOG_PRINTF_FMT(2, 3);
+    void TraceF(APRLOG_FMT_STR const char* fmt, ...) APRLOG_PRINTF_FMT(2, 3);
+    void DebugF(APRLOG_FMT_STR const char* fmt, ...) APRLOG_PRINTF_FMT(2, 3);
+    void InfoF(APRLOG_FMT_STR const char* fmt, ...) APRLOG_PRINTF_FMT(2, 3);
+    void WarnF(APRLOG_FMT_STR const char* fmt, ...) APRLOG_PRINTF_FMT(2, 3);
+    void ErrorF(APRLOG_FMT_STR const char* fmt, ...) APRLOG_PRINTF_FMT(2, 3);
+    void CriticalF(APRLOG_FMT_STR const char* fmt, ...) APRLOG_PRINTF_FMT(2, 3);
 
-    void LogSrc(SyLogLevel level, const char* file, int line, const char* msg);
+    void LogSrc(AprLogLevel level, const char* file, int line, const char* msg);
 
-    inline void LogSrc(SyLogLevel level, const char* file, int line, const std::string& msg)
+    inline void LogSrc(AprLogLevel level, const char* file, int line, const std::string& msg)
     {
         LogSrc(level, file, line, msg.c_str());
     }
 
-    void LogFSrc(SyLogLevel level, const char* file, int line, SYLOG_FMT_STR const char* fmt, ...)
-        SYLOG_PRINTF_FMT(5, 6);
+    void LogFSrc(AprLogLevel level, const char* file, int line, APRLOG_FMT_STR const char* fmt, ...)
+        APRLOG_PRINTF_FMT(5, 6);
 
 private:
-    SyLogger();
-    ~SyLogger();
+    AprLogger();
+    ~AprLogger();
 
 private:
-    SyLoggerImpl* m_impl;
+    AprLoggerImpl* m_impl;
 };
 
-#define SY_TRACE(msg)    SyLogger::GetInstance().LogSrc(SyLogLevel::Trace, __FILE__, __LINE__, msg)
-#define SY_DEBUG(msg)    SyLogger::GetInstance().LogSrc(SyLogLevel::Debug, __FILE__, __LINE__, msg)
-#define SY_INFO(msg)     SyLogger::GetInstance().LogSrc(SyLogLevel::Info, __FILE__, __LINE__, msg)
-#define SY_WARN(msg)     SyLogger::GetInstance().LogSrc(SyLogLevel::Warn, __FILE__, __LINE__, msg)
-#define SY_ERROR(msg)    SyLogger::GetInstance().LogSrc(SyLogLevel::Error, __FILE__, __LINE__, msg)
-#define SY_CRITICAL(msg) SyLogger::GetInstance().LogSrc(SyLogLevel::Critical, __FILE__, __LINE__, msg)
+#define APR_TRACE(msg)    AprLogger::GetInstance().LogSrc(AprLogLevel::Trace, __FILE__, __LINE__, msg)
+#define APR_DEBUG(msg)    AprLogger::GetInstance().LogSrc(AprLogLevel::Debug, __FILE__, __LINE__, msg)
+#define APR_INFO(msg)     AprLogger::GetInstance().LogSrc(AprLogLevel::Info, __FILE__, __LINE__, msg)
+#define APR_WARN(msg)     AprLogger::GetInstance().LogSrc(AprLogLevel::Warn, __FILE__, __LINE__, msg)
+#define APR_ERROR(msg)    AprLogger::GetInstance().LogSrc(AprLogLevel::Error, __FILE__, __LINE__, msg)
+#define APR_CRITICAL(msg) AprLogger::GetInstance().LogSrc(AprLogLevel::Critical, __FILE__, __LINE__, msg)
 
-#define SY_TRACEF(...)    SyLogger::GetInstance().LogFSrc(SyLogLevel::Trace, __FILE__, __LINE__, __VA_ARGS__)
-#define SY_DEBUGF(...)    SyLogger::GetInstance().LogFSrc(SyLogLevel::Debug, __FILE__, __LINE__, __VA_ARGS__)
-#define SY_INFOF(...)     SyLogger::GetInstance().LogFSrc(SyLogLevel::Info, __FILE__, __LINE__, __VA_ARGS__)
-#define SY_WARNF(...)     SyLogger::GetInstance().LogFSrc(SyLogLevel::Warn, __FILE__, __LINE__, __VA_ARGS__)
-#define SY_ERRORF(...)    SyLogger::GetInstance().LogFSrc(SyLogLevel::Error, __FILE__, __LINE__, __VA_ARGS__)
-#define SY_CRITICALF(...) SyLogger::GetInstance().LogFSrc(SyLogLevel::Critical, __FILE__, __LINE__, __VA_ARGS__)
+#define APR_TRACEF(...)    AprLogger::GetInstance().LogFSrc(AprLogLevel::Trace, __FILE__, __LINE__, __VA_ARGS__)
+#define APR_DEBUGF(...)    AprLogger::GetInstance().LogFSrc(AprLogLevel::Debug, __FILE__, __LINE__, __VA_ARGS__)
+#define APR_INFOF(...)     AprLogger::GetInstance().LogFSrc(AprLogLevel::Info, __FILE__, __LINE__, __VA_ARGS__)
+#define APR_WARNF(...)     AprLogger::GetInstance().LogFSrc(AprLogLevel::Warn, __FILE__, __LINE__, __VA_ARGS__)
+#define APR_ERRORF(...)    AprLogger::GetInstance().LogFSrc(AprLogLevel::Error, __FILE__, __LINE__, __VA_ARGS__)
+#define APR_CRITICALF(...) AprLogger::GetInstance().LogFSrc(AprLogLevel::Critical, __FILE__, __LINE__, __VA_ARGS__)

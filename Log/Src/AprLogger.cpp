@@ -1,4 +1,4 @@
-#include "Log/SyLogger.h"
+#include "Log/AprLogger.h"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/async.h>
@@ -21,17 +21,17 @@
 
 namespace fs = std::filesystem;
 
-constexpr uint32_t kSyLogVersion = 0x010000;
-constexpr const char* kSyLogVersionString = "1.0.0";
+constexpr uint32_t kAprLogVersion = 0x010000;
+constexpr const char* kAprLogVersionString = "1.0.0";
 
-extern "C" LOG_API uint32_t SyLog_GetVersion(void)
+extern "C" LOG_API uint32_t AprLog_GetVersion(void)
 {
-    return kSyLogVersion;
+    return kAprLogVersion;
 }
 
-extern "C" LOG_API const char* SyLog_GetVersionString(void)
+extern "C" LOG_API const char* AprLog_GetVersionString(void)
 {
-    return kSyLogVersionString;
+    return kAprLogVersionString;
 }
 
 // pathToUtf8 与 Ut::FileUtils::pathToUtf8 实现一致。
@@ -57,7 +57,7 @@ static std::string pathToUtf8(const fs::path& p)
 }
 
 static std::string g_defaultLogPath;
-static SyLogger::LogPathCallback g_logPathCallback = nullptr;
+static AprLogger::LogPathCallback g_logPathCallback = nullptr;
 static void* g_logPathCallbackCtx = nullptr;
 
 
@@ -130,21 +130,21 @@ private:
 using LevelRangeSinkMt = LevelRangeSink<std::mutex>;
 
 
-static spdlog::level::level_enum ToSpdlogLevel(SyLogLevel level)
+static spdlog::level::level_enum ToSpdlogLevel(AprLogLevel level)
 {
     switch (level)
     {
-    case SyLogLevel::Trace:
+    case AprLogLevel::Trace:
         return spdlog::level::trace;
-    case SyLogLevel::Debug:
+    case AprLogLevel::Debug:
         return spdlog::level::debug;
-    case SyLogLevel::Info:
+    case AprLogLevel::Info:
         return spdlog::level::info;
-    case SyLogLevel::Warn:
+    case AprLogLevel::Warn:
         return spdlog::level::warn;
-    case SyLogLevel::Error:
+    case AprLogLevel::Error:
         return spdlog::level::err;
-    case SyLogLevel::Critical:
+    case AprLogLevel::Critical:
         return spdlog::level::critical;
     default:
         return spdlog::level::off;
@@ -207,11 +207,11 @@ static std::string FormatString(const char* fmt, va_list args)
 }
 
 
-class SyLoggerImpl
+class AprLoggerImpl
 {
 public:
     std::shared_ptr<spdlog::logger> m_logger;
-    SyLogConfigInternal m_config;
+    AprLogConfigInternal m_config;
     std::atomic<bool> m_enabled{ true };
     bool m_bInitialized = false;
     mutable std::mutex m_mutex;
@@ -223,7 +223,7 @@ public:
     // 会向 thread_pool 投递（若线程池已先析构则落入 error handler）。
     // 仅 reset() 让 async_logger 析构：它不访问 registry，只释放自身成员，
     // 文件 sink 析构时自行 flush 关闭文件，全程不碰 spdlog 静态对象，安全。
-    ~SyLoggerImpl()
+    ~AprLoggerImpl()
     {
         if (m_logger && m_bInitialized)
         {
@@ -295,7 +295,7 @@ public:
         }
     }
 
-    void ApplyLevel(SyLogLevel level)
+    void ApplyLevel(AprLogLevel level)
     {
         m_config.level = level;
         if (m_logger)
@@ -329,40 +329,40 @@ public:
     }
 };
 
-bool SyLoggerImpl::s_threadPoolInitialized = false;
-std::mutex SyLoggerImpl::s_tpMutex;
+bool AprLoggerImpl::s_threadPoolInitialized = false;
+std::mutex AprLoggerImpl::s_tpMutex;
 
 
 // 进程退出期的安全阀。
 //
-// SyLogger 是 libLog 共享库里的函数内静态对象，而 Vision 等模块的单例是主程序
+// AprLogger 是 libLog 共享库里的函数内静态对象，而 Vision 等模块的单例是主程序
 // （或其它 DLL）里的函数内静态对象。__cxa_finalize 会让 libLog 的静态析构先于
 // 主程序执行；这些模块的析构函数若还在打日志，拿到的就是已经被 delete 并置空
 // 的 m_impl，PrepareLogger 读 m_enabled 时直接 SIGSEGV。
 // 实测栈：VisionService::~VisionService -> shutdown() -> VIS_LOG_INFO -> LogSrc。
 //
-// ~SyLogger() 已经刻意不碰 spdlog 的全局静态对象，这里补上最后半步：析构之后
-// 所有日志入口退化为无操作。此时文件 sink 已随 ~SyLoggerImpl 关闭并 flush，
+// ~AprLogger() 已经刻意不碰 spdlog 的全局静态对象，这里补上最后半步：析构之后
+// 所有日志入口退化为无操作。此时文件 sink 已随 ~AprLoggerImpl 关闭并 flush，
 // 本来也无法再落盘；显式的 Shutdown() 正常路径完全不受影响。
-static bool PrepareLoggerIfAlive(SyLoggerImpl* impl,
+static bool PrepareLoggerIfAlive(AprLoggerImpl* impl,
                                  std::shared_ptr<spdlog::logger>& outLogger)
 {
     return impl != nullptr && impl->PrepareLogger(outLogger);
 }
 
 
-SyLogger& SyLogger::GetInstance()
+AprLogger& AprLogger::GetInstance()
 {
-    static SyLogger instance;
+    static AprLogger instance;
     return instance;
 }
 
-SyLogger::SyLogger()
-    : m_impl(new SyLoggerImpl())
+AprLogger::AprLogger()
+    : m_impl(new AprLoggerImpl())
 {
 }
 
-SyLogger::~SyLogger()
+AprLogger::~AprLogger()
 {
     // 注意：此处不能调用 Shutdown()。
     // Shutdown() 内部会访问 spdlog 的全局静态对象（registry / thread pool），
@@ -375,7 +375,7 @@ SyLogger::~SyLogger()
 }
 
 
-void SyLogger::Initialize(const SyLogConfig& config)
+void AprLogger::Initialize(const AprLogConfig& config)
 {
     std::lock_guard<std::mutex> lock(m_impl->m_mutex);
 
@@ -390,7 +390,7 @@ void SyLogger::Initialize(const SyLogConfig& config)
         m_impl->m_bInitialized = false;
     }
 
-    m_impl->m_config = static_cast<SyLogConfigInternal>(config);
+    m_impl->m_config = static_cast<AprLogConfigInternal>(config);
 
     std::string logDirStr = (!config.logPath || *config.logPath == '\0') ? m_impl->GetDefaultLogPath() : config.logPath;
     m_impl->m_config.logPath = logDirStr;
@@ -416,7 +416,7 @@ void SyLogger::Initialize(const SyLogConfig& config)
         {
             fs::create_directories(logDir);
 
-            std::string logNameStr = (config.logName && *config.logName) ? config.logName : "SanYiCAD";
+            std::string logNameStr = (config.logName && *config.logName) ? config.logName : "April";
             AddRotatingFileSink(sinks, pathToUtf8(logDir / (logNameStr + ".log")), config.maxFileSize, config.maxFiles);
 
             if (config.splitErrorLog)
@@ -440,13 +440,13 @@ void SyLogger::Initialize(const SyLogConfig& config)
             }
         }
 
-        if (!SyLoggerImpl::s_threadPoolInitialized)
+        if (!AprLoggerImpl::s_threadPoolInitialized)
         {
-            std::lock_guard<std::mutex> tpLock(SyLoggerImpl::s_tpMutex);
-            if (!SyLoggerImpl::s_threadPoolInitialized)
+            std::lock_guard<std::mutex> tpLock(AprLoggerImpl::s_tpMutex);
+            if (!AprLoggerImpl::s_threadPoolInitialized)
             {
                 spdlog::init_thread_pool(config.asyncQueueSize, config.asyncThreads);
-                SyLoggerImpl::s_threadPoolInitialized = true;
+                AprLoggerImpl::s_threadPoolInitialized = true;
             }
         }
 
@@ -473,10 +473,10 @@ void SyLogger::Initialize(const SyLogConfig& config)
     }
 }
 
-void SyLogger::Initialize(const char* logName, SyLogLevel level, bool consoleEnable, bool fileEnable)
+void AprLogger::Initialize(const char* logName, AprLogLevel level, bool consoleEnable, bool fileEnable)
 {
-    SyLogConfig config;
-    config.logName = (logName && *logName) ? logName : "SanYiCAD";
+    AprLogConfig config;
+    config.logName = (logName && *logName) ? logName : "April";
     config.level = level;
     config.consoleEnable = consoleEnable;
     config.fileEnable = fileEnable;
@@ -484,7 +484,7 @@ void SyLogger::Initialize(const char* logName, SyLogLevel level, bool consoleEna
 }
 
 
-void SyLogger::Shutdown()
+void AprLogger::Shutdown()
 {
     std::lock_guard<std::mutex> lock(m_impl->m_mutex);
     if (!m_impl->m_bInitialized)
@@ -500,10 +500,10 @@ void SyLogger::Shutdown()
     m_impl->m_bInitialized = false;
 
     spdlog::shutdown();
-    SyLoggerImpl::s_threadPoolInitialized = false;
+    AprLoggerImpl::s_threadPoolInitialized = false;
 }
 
-void SyLogger::Flush()
+void AprLogger::Flush()
 {
     // 不加锁：本函数的主要调用者是崩溃处理器，此时其他线程可能正持着 m_mutex
     // 且永远不会再释放（比如崩在临界区里），加锁等于把崩溃现场变成死锁。
@@ -516,60 +516,60 @@ void SyLogger::Flush()
 }
 
 
-void SyLogger::SetLevel(SyLogLevel level)
+void AprLogger::SetLevel(AprLogLevel level)
 {
     std::lock_guard<std::mutex> lock(m_impl->m_mutex);
     m_impl->ApplyLevel(level);
 }
 
-SyLogLevel SyLogger::GetLevel() const
+AprLogLevel AprLogger::GetLevel() const
 {
     return m_impl->m_config.level;
 }
 
-void SyLogger::SetEnabled(bool enabled)
+void AprLogger::SetEnabled(bool enabled)
 {
     m_impl->m_enabled.store(enabled, std::memory_order_relaxed);
 }
 
-bool SyLogger::IsEnabled() const
+bool AprLogger::IsEnabled() const
 {
     return m_impl->m_enabled.load(std::memory_order_relaxed);
 }
 
-const char* SyLogger::GetLogDirectory() const
+const char* AprLogger::GetLogDirectory() const
 {
     // 返回指向内部数据的指针：调用方应在锁外尽快拷贝。
     // 不使用 static 局部变量——多线程并发写同一 static 是 data race。
     return m_impl->m_config.logPath.c_str();
 }
 
-void SyLogger::SetLogPathCallback(LogPathCallback callback, void* ctx)
+void AprLogger::SetLogPathCallback(LogPathCallback callback, void* ctx)
 {
     g_logPathCallback = callback;
     g_logPathCallbackCtx = ctx;
 }
 
-void SyLogger::SetDefaultLogPath(const char* path)
+void AprLogger::SetDefaultLogPath(const char* path)
 {
     g_defaultLogPath = path ? path : "";
 }
 
-const char* SyLogger::GetDefaultLogPath()
+const char* AprLogger::GetDefaultLogPath()
 {
     // 返回指向全局变量的指针：调用方应在使用后尽快拷贝，不要长期持有。
     return g_defaultLogPath.c_str();
 }
 
 
-void SyLogger::CleanOldLogs()
+void AprLogger::CleanOldLogs()
 {
     std::lock_guard<std::mutex> lock(m_impl->m_mutex);
     m_impl->ApplyCleanOldLogs();
 }
 
 
-void SyLogger::TraceStr(const char* msg)
+void AprLogger::TraceStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!PrepareLoggerIfAlive(m_impl, logger))
@@ -579,7 +579,7 @@ void SyLogger::TraceStr(const char* msg)
     logger->log(spdlog::level::trace, msg ? msg : "");
 }
 
-void SyLogger::DebugStr(const char* msg)
+void AprLogger::DebugStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!PrepareLoggerIfAlive(m_impl, logger))
@@ -589,7 +589,7 @@ void SyLogger::DebugStr(const char* msg)
     logger->log(spdlog::level::debug, msg ? msg : "");
 }
 
-void SyLogger::InfoStr(const char* msg)
+void AprLogger::InfoStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!PrepareLoggerIfAlive(m_impl, logger))
@@ -599,7 +599,7 @@ void SyLogger::InfoStr(const char* msg)
     logger->log(spdlog::level::info, msg ? msg : "");
 }
 
-void SyLogger::WarnStr(const char* msg)
+void AprLogger::WarnStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!PrepareLoggerIfAlive(m_impl, logger))
@@ -609,7 +609,7 @@ void SyLogger::WarnStr(const char* msg)
     logger->log(spdlog::level::warn, msg ? msg : "");
 }
 
-void SyLogger::ErrorStr(const char* msg)
+void AprLogger::ErrorStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!PrepareLoggerIfAlive(m_impl, logger))
@@ -619,7 +619,7 @@ void SyLogger::ErrorStr(const char* msg)
     logger->log(spdlog::level::err, msg ? msg : "");
 }
 
-void SyLogger::CriticalStr(const char* msg)
+void AprLogger::CriticalStr(const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!PrepareLoggerIfAlive(m_impl, logger))
@@ -631,7 +631,7 @@ void SyLogger::CriticalStr(const char* msg)
 
 
 #define DEFINE_LEGACY_PRINTF_METHOD(name, spdLevel)      \
-    void SyLogger::name(const char* fmt, ...)            \
+    void AprLogger::name(const char* fmt, ...)            \
     {                                                    \
         std::shared_ptr<spdlog::logger> logger;          \
         if (!PrepareLoggerIfAlive(m_impl, logger))              \
@@ -653,7 +653,7 @@ DEFINE_LEGACY_PRINTF_METHOD(ErrorF, spdlog::level::err)
 DEFINE_LEGACY_PRINTF_METHOD(CriticalF, spdlog::level::critical)
 
 
-void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const char* msg)
+void AprLogger::LogSrc(AprLogLevel level, const char* file, int line, const char* msg)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!PrepareLoggerIfAlive(m_impl, logger))
@@ -676,7 +676,7 @@ void SyLogger::LogSrc(SyLogLevel level, const char* file, int line, const char* 
 }
 
 
-void SyLogger::LogFSrc(SyLogLevel level, const char* file, int line, const char* fmt, ...)
+void AprLogger::LogFSrc(AprLogLevel level, const char* file, int line, const char* fmt, ...)
 {
     std::shared_ptr<spdlog::logger> logger;
     if (!PrepareLoggerIfAlive(m_impl, logger))

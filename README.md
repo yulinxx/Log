@@ -1,4 +1,4 @@
-# SyLogger 日志库
+# AprLogger 日志库
 
 基于 **spdlog** 的高性能 C++ 日志库，提供简洁易用的日志接口。
 
@@ -21,28 +21,28 @@
 ## 快速开始
 
 ```cpp
-#include "Log/SyLogger.h"
+#include "Log/AprLogger.h"
 
 int main() {
     // 初始化日志系统（使用默认配置）
-    SyLogger::GetInstance().Initialize("MyApp");
+    AprLogger::GetInstance().Initialize("MyApp");
 
     // 基础日志输出（自动捕获源位置）
-    SY_INFO("程序启动");
-    SY_WARN("这是警告");
-    SY_ERROR("发生错误");
+    APR_INFO("程序启动");
+    APR_WARN("这是警告");
+    APR_ERROR("发生错误");
 
     // printf 风格格式化日志
     const char* username = "张三";
     int count = 42;
     double elapsed = 1.23;
     
-    SY_INFOF("用户 %s 登录成功", username);
-    SY_INFOF("处理 %d 条数据，耗时 %.2f 秒", count, elapsed);
-    SY_ERRORF("错误码: %d", 500);
+    APR_INFOF("用户 %s 登录成功", username);
+    APR_INFOF("处理 %d 条数据，耗时 %.2f 秒", count, elapsed);
+    APR_ERRORF("错误码: %d", 500);
 
     // 程序退出前关闭（可选，进程退出时会自动清理）
-    SyLogger::GetInstance().Shutdown();
+    AprLogger::GetInstance().Shutdown();
     return 0;
 }
 ```
@@ -72,7 +72,7 @@ ls -la
 
 ### 自定义路径
 
-可以通过 `SyLogConfig::logPath` 设置自定义路径，但**不建议使用系统根目录**（如 `C:\`），因为可能没有写入权限。推荐使用：
+可以通过 `AprLogConfig::logPath` 设置自定义路径，但**不建议使用系统根目录**（如 `C:\`），因为可能没有写入权限。推荐使用：
 
 | 场景 | 推荐路径 |
 |------|----------|
@@ -85,12 +85,12 @@ ls -la
 ### 完整配置
 
 ```cpp
-#include "Log/SyLogger.h"
+#include "Log/AprLogger.h"
 
-SyLogConfig config;
+AprLogConfig config;
 config.logName = "AppName";              // 日志名称，用于目录和文件名
 config.logPath = "";                     // 留空使用默认路径，建议保持为空
-config.level = SyLogLevel::Debug;        // 日志级别：Trace/Debug/Info/Warn/Error/Critical/Off
+config.level = AprLogLevel::Debug;        // 日志级别：Trace/Debug/Info/Warn/Error/Critical/Off
 config.consoleEnable = true;             // 启用控制台彩色输出
 config.fileEnable = true;                // 启用文件输出
 config.maxAgeDays = 30;                  // 日志保留天数，超过自动删除
@@ -102,16 +102,16 @@ config.rateLimit = 0;                    // 速率限制（条/秒，0=不限）
 config.asyncQueueSize = 8192;            // 异步队列大小（条数）
 config.asyncThreads = 1;                 // 异步写入线程数
 
-SyLogger::GetInstance().Initialize(config);
+AprLogger::GetInstance().Initialize(config);
 ```
 
 ### 场景化配置
 
 ```cpp
 // 后台服务：仅文件输出，不输出到控制台
-SyLogConfig serviceConfig;
+AprLogConfig serviceConfig;
 serviceConfig.logName = "BackgroundService";
-serviceConfig.level = SyLogLevel::Info;   // 生产环境使用 Info 级别
+serviceConfig.level = AprLogLevel::Info;   // 生产环境使用 Info 级别
 serviceConfig.consoleEnable = false;      // 关闭控制台输出
 serviceConfig.fileEnable = true;          // 启用文件输出
 serviceConfig.maxAgeDays = 7;             // 保留7天
@@ -119,16 +119,16 @@ serviceConfig.maxFileSize = 100 * 1024 * 1024;  // 100MB
 serviceConfig.maxFiles = 5;
 
 // 开发调试：控制台 + 详细级别，不写文件
-SyLogConfig debugConfig;
+AprLogConfig debugConfig;
 debugConfig.logName = "DebugApp";
-debugConfig.level = SyLogLevel::Trace;   // 开发环境使用 Trace 级别
+debugConfig.level = AprLogLevel::Trace;   // 开发环境使用 Trace 级别
 debugConfig.consoleEnable = true;
 debugConfig.fileEnable = false;          // 不写文件，只输出到控制台
 
 // 高吞吐场景：启用速率限制
-SyLogConfig highVolumeConfig;
+AprLogConfig highVolumeConfig;
 highVolumeConfig.logName = "HighVolumeApp";
-highVolumeConfig.level = SyLogLevel::Info;
+highVolumeConfig.level = AprLogLevel::Info;
 highVolumeConfig.rateLimit = 100;        // 每秒最多 100 条日志
 ```
 
@@ -148,20 +148,20 @@ highVolumeConfig.rateLimit = 100;        // 每秒最多 100 条日志
 
 ```cpp
 // 开发阶段：详细日志
-SyLogger::GetInstance().SetLevel(SyLogLevel::Debug);
+AprLogger::GetInstance().SetLevel(AprLogLevel::Debug);
 
 // 生产环境：仅错误日志
-SyLogger::GetInstance().SetLevel(SyLogLevel::Error);
+AprLogger::GetInstance().SetLevel(AprLogLevel::Error);
 
 // 临时禁用日志（紧急情况下）
-SyLogger::GetInstance().SetEnabled(false);
+AprLogger::GetInstance().SetEnabled(false);
 
 // 重新启用
-SyLogger::GetInstance().SetEnabled(true);
+AprLogger::GetInstance().SetEnabled(true);
 
 // 检查当前状态
-SyLogLevel currentLevel = SyLogger::GetInstance().GetLevel();
-bool isEnabled = SyLogger::GetInstance().IsEnabled();
+AprLogLevel currentLevel = AprLogger::GetInstance().GetLevel();
+bool isEnabled = AprLogger::GetInstance().IsEnabled();
 ```
 
 ## API 参考
@@ -172,32 +172,32 @@ bool isEnabled = SyLogger::GetInstance().IsEnabled();
 
 ```cpp
 // 基础字符串日志
-SY_TRACE(msg)      // 跟踪级别，最详细
-SY_DEBUG(msg)      // 调试级别
-SY_INFO(msg)       // 信息级别（常用）
-SY_WARN(msg)       // 警告级别
-SY_ERROR(msg)      // 错误级别
-SY_CRITICAL(msg)   // 严重错误级别
+APR_TRACE(msg)      // 跟踪级别，最详细
+APR_DEBUG(msg)      // 调试级别
+APR_INFO(msg)       // 信息级别（常用）
+APR_WARN(msg)       // 警告级别
+APR_ERROR(msg)      // 错误级别
+APR_CRITICAL(msg)   // 严重错误级别
 
 // printf 风格格式化日志（推荐使用）
-SY_TRACEF("fmt %d", arg)
-SY_DEBUGF("fmt %s", arg)
-SY_INFOF("fmt %.2f", arg)
-SY_WARNF("fmt %s %d", arg1, arg2)
-SY_ERRORF("fmt %s", arg)
-SY_CRITICALF("fmt %d", arg)
+APR_TRACEF("fmt %d", arg)
+APR_DEBUGF("fmt %s", arg)
+APR_INFOF("fmt %.2f", arg)
+APR_WARNF("fmt %s %d", arg1, arg2)
+APR_ERRORF("fmt %s", arg)
+APR_CRITICALF("fmt %d", arg)
 ```
 
-### SyLogger 类接口
+### AprLogger 类接口
 
 ```cpp
 // 单例访问
-static SyLogger& GetInstance();
+static AprLogger& GetInstance();
 
 // 初始化方法
-void Initialize(const SyLogConfig& config);
-void Initialize(const char* logName = "SanYi",
-                SyLogLevel level = SyLogLevel::Debug,
+void Initialize(const AprLogConfig& config);
+void Initialize(const char* logName = "April",
+                AprLogLevel level = AprLogLevel::Debug,
                 bool consoleEnable = true,
                 bool fileEnable = true);
 
@@ -205,8 +205,8 @@ void Initialize(const char* logName = "SanYi",
 void Shutdown();  // 关闭日志系统，刷新缓冲区
 
 // 运行时配置
-void SetLevel(SyLogLevel level);
-SyLogLevel GetLevel() const;
+void SetLevel(AprLogLevel level);
+AprLogLevel GetLevel() const;
 void SetEnabled(bool enabled);
 bool IsEnabled() const;
 
@@ -226,10 +226,10 @@ static const char* GetDefaultLogPath();           // 获取全局默认日志路
 
 ```cpp
 // 字符串日志带源位置
-void LogSrc(SyLogLevel level, const char* file, int line, const char* msg);
+void LogSrc(AprLogLevel level, const char* file, int line, const char* msg);
 
 // printf 风格日志带源位置
-void LogFSrc(SyLogLevel level, const char* file, int line, const char* fmt, ...);
+void LogFSrc(AprLogLevel level, const char* file, int line, const char* fmt, ...);
 ```
 
 ### C 语言 API
@@ -237,23 +237,23 @@ void LogFSrc(SyLogLevel level, const char* file, int line, const char* fmt, ...)
 提供 C 语言接口，方便跨语言调用（如 C、Python 等）。
 
 ```c
-#include "Log/SyLogger.h"
+#include "Log/AprLogger.h"
 
 // 初始化和关闭
-void SyLog_Init(const char* logName, int level, bool console, bool file);
-void SyLog_Shutdown();
+void AprLog_Init(const char* logName, int level, bool console, bool file);
+void AprLog_Shutdown();
 
 // 配置
-void SyLog_SetLevel(int level);       // level: 0=Trace, 1=Debug, ..., 5=Critical
-void SyLog_SetEnabled(bool enabled);
+void AprLog_SetLevel(int level);       // level: 0=Trace, 1=Debug, ..., 5=Critical
+void AprLog_SetEnabled(bool enabled);
 
 // 日志输出
-void SyLog_Trace(const char* msg);
-void SyLog_Debug(const char* msg);
-void SyLog_Info(const char* msg);
-void SyLog_Warn(const char* msg);
-void SyLog_Error(const char* msg);
-void SyLog_Critical(const char* msg);
+void AprLog_Trace(const char* msg);
+void AprLog_Debug(const char* msg);
+void AprLog_Info(const char* msg);
+void AprLog_Warn(const char* msg);
+void AprLog_Error(const char* msg);
+void AprLog_Critical(const char* msg);
 ```
 
 ## 日志格式
@@ -315,20 +315,20 @@ C:\Users\<用户名>\AppData\Local\AppName\logs\
 
 ```cpp
 // 1. 生产环境使用 Info 或更高级别，减少日志量
-SyLogger::GetInstance().SetLevel(SyLogLevel::Info);
+AprLogger::GetInstance().SetLevel(AprLogLevel::Info);
 
 // 2. 日志写盘在异步线程，不影响业务逻辑性能
 //    但仍需避免在热点路径中频繁输出大量日志
 
 // 3. 使用格式化宏而非字符串拼接
 // ❌ 错误：产生临时 string 对象，影响性能
-SY_INFO("用户 " + std::string(username) + " 登录成功");
+APR_INFO("用户 " + std::string(username) + " 登录成功");
 
 // ✅ 正确：直接传递格式化参数，零拷贝
-SY_INFOF("用户 %s 登录成功", username);
+APR_INFOF("用户 %s 登录成功", username);
 
 // 4. 高吞吐场景启用速率限制
-SyLogConfig config;
+AprLogConfig config;
 config.rateLimit = 100;  // 每秒最多 100 条
 ```
 
@@ -337,18 +337,18 @@ config.rateLimit = 100;  // 每秒最多 100 条
 日志库是线程安全的，初始化后各线程直接调用宏，无需额外同步。
 
 ```cpp
-SyLogger::GetInstance().Initialize("MyApp");
+AprLogger::GetInstance().Initialize("MyApp");
 
 std::thread t1([]() {
     for (int i = 0; i < 100; ++i) {
-        SY_INFOF("Thread 1: message %d", i);
+        APR_INFOF("Thread 1: message %d", i);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 });
 
 std::thread t2([]() {
     for (int i = 0; i < 100; ++i) {
-        SY_INFOF("Thread 2: message %d", i);
+        APR_INFOF("Thread 2: message %d", i);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 });
@@ -359,21 +359,21 @@ t2.join();
 
 **写入顺序（FIFO）**
 
-异步模式下，每次 `SY_INFO()` 调用会把消息推入一个线程安全的队列，后台 worker 线程按入队顺序依次处理。消息按入队时间排序，哪个线程先调用，那条日志就先写。
+异步模式下，每次 `APR_INFO()` 调用会把消息推入一个线程安全的队列，后台 worker 线程按入队顺序依次处理。消息按入队时间排序，哪个线程先调用，那条日志就先写。
 
 ### 异常处理
 
 ```cpp
 try {
     processData(data);
-    SY_INFOF("数据处理成功，数量: %zu", data.size());
+    APR_INFOF("数据处理成功，数量: %zu", data.size());
 }
 catch (const std::exception& e) {
     // 宏自动记录源位置，无需手动加 __FILE__/__LINE__
-    SY_ERRORF("数据处理失败: %s", e.what());
+    APR_ERRORF("数据处理失败: %s", e.what());
 }
 catch (...) {
-    SY_CRITICAL("未知异常");
+    APR_CRITICAL("未知异常");
 }
 ```
 
@@ -381,8 +381,8 @@ catch (...) {
 
 ```cpp
 // 获取当前日志目录
-const char* logDir = SyLogger::GetInstance().GetLogDirectory();
-SY_INFOF("日志目录: %s", logDir);
+const char* logDir = AprLogger::GetInstance().GetLogDirectory();
+APR_INFOF("日志目录: %s", logDir);
 
 // 在控制台打印，方便开发调试
 printf("日志目录: %s\n", logDir);
@@ -419,39 +419,39 @@ conan install spdlog/1.9.0@
 示例程序位于 `Log/Example/main.cpp`，演示了基本用法：
 
 ```cpp
-#include "Log/SyLogger.h"
+#include "Log/AprLogger.h"
 #include <thread>
 
 int main() {
     // 初始化日志系统
-    SyLogger::GetInstance().Initialize("SyLogExample");
+    AprLogger::GetInstance().Initialize("AprLogExample");
     
     // 输出不同级别的日志
-    SY_TRACE("这是一条 Trace 日志");
-    SY_DEBUG("这是一条 Debug 日志");
-    SY_INFO("这是一条 Info 日志");
-    SY_WARN("这是一条 Warn 日志");
-    SY_ERROR("这是一条 Error 日志");
-    SY_CRITICAL("这是一条 Critical 日志");
+    APR_TRACE("这是一条 Trace 日志");
+    APR_DEBUG("这是一条 Debug 日志");
+    APR_INFO("这是一条 Info 日志");
+    APR_WARN("这是一条 Warn 日志");
+    APR_ERROR("这是一条 Error 日志");
+    APR_CRITICAL("这是一条 Critical 日志");
     
     // 格式化日志
-    SY_INFOF("格式化示例：整数=%d, 浮点数=%.2f, 字符串=%s", 42, 3.14, "hello");
+    APR_INFOF("格式化示例：整数=%d, 浮点数=%.2f, 字符串=%s", 42, 3.14, "hello");
     
     // 获取日志目录并输出
-    const char* logDir = SyLogger::GetInstance().GetLogDirectory();
-    SY_INFOF("日志文件位于: %s", logDir);
+    const char* logDir = AprLogger::GetInstance().GetLogDirectory();
+    APR_INFOF("日志文件位于: %s", logDir);
     
     // 多线程日志
     std::thread t([]() {
         for (int i = 0; i < 5; ++i) {
-            SY_INFOF("子线程消息 %d", i);
+            APR_INFOF("子线程消息 %d", i);
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     });
     t.join();
     
     // 关闭日志系统
-    SyLogger::GetInstance().Shutdown();
+    AprLogger::GetInstance().Shutdown();
     
     printf("\n日志已写入，请查看目录: %s\n", logDir);
     return 0;
@@ -494,44 +494,44 @@ int main() {
 
 ```cpp
 // 启用详细日志
-SyLogger::GetInstance().SetLevel(SyLogLevel::Trace);
+AprLogger::GetInstance().SetLevel(AprLogLevel::Trace);
 
 // 查看日志目录（关键！）
-const char* logDir = SyLogger::GetInstance().GetLogDirectory();
+const char* logDir = AprLogger::GetInstance().GetLogDirectory();
 printf("日志目录: %s\n", logDir);  // 在控制台打印
-SY_INFOF("日志目录: %s", logDir);  // 写入日志文件
+APR_INFOF("日志目录: %s", logDir);  // 写入日志文件
 
 // 手动清理旧日志
-SyLogger::GetInstance().CleanOldLogs();
+AprLogger::GetInstance().CleanOldLogs();
 
 // 检查日志是否启用
-if (SyLogger::GetInstance().IsEnabled()) {
-    SY_INFO("日志系统已启用");
+if (AprLogger::GetInstance().IsEnabled()) {
+    APR_INFO("日志系统已启用");
 }
 ```
 
 ## 生命周期与析构安全
 
-SyLogger 采用 **PIMPL + 函数局部静态单例** 实现，`m_impl` 的分配与释放均发生在 Log DLL 内部（同 CRT 规则，跨 DLL 安全）。
+AprLogger 采用 **PIMPL + 函数局部静态单例** 实现，`m_impl` 的分配与释放均发生在 Log DLL 内部（同 CRT 规则，跨 DLL 安全）。
 
 ### 析构顺序与安全性
 
 ```
 进程退出
- └─ AppInitializer::shutdown()        → SyLogger::Shutdown()
+ └─ AppInitializer::shutdown()        → AprLogger::Shutdown()
      └─ m_logger->flush()             刷新剩余缓冲
      └─ spdlog::drop(name)           从 registry 移除该 logger
      └─ m_logger.reset()              置空 shared_ptr（关键）
      └─ spdlog::shutdown()            干净地 join 异步线程池
  └─ 单例静态析构（__cxa_finalize 阶段）
-     └─ ~SyLogger() → delete m_impl → ~SyLoggerImpl()
+     └─ ~AprLogger() → delete m_impl → ~AprLoggerImpl()
          └─ 此时 m_logger 已为空，仅释放 m_config 等普通成员，安全
 ```
 
-- **正常路径**：`Shutdown()` 先将 `m_logger` 置空并 `spdlog::shutdown()`，静态析构阶段 `~SyLoggerImpl` 不再触碰任何 spdlog 对象，绝无 `mutex lock failed` 风险。
-- **异常退出路径**（未显式调用 `Shutdown()`）：`~SyLoggerImpl` 只执行 `m_logger.reset()`，让 `async_logger`/文件 sink 析构自行 flush 关闭文件。
+- **正常路径**：`Shutdown()` 先将 `m_logger` 置空并 `spdlog::shutdown()`，静态析构阶段 `~AprLoggerImpl` 不再触碰任何 spdlog 对象，绝无 `mutex lock failed` 风险。
+- **异常退出路径**（未显式调用 `Shutdown()`）：`~AprLoggerImpl` 只执行 `m_logger.reset()`，让 `async_logger`/文件 sink 析构自行 flush 关闭文件。
 
-### `~SyLoggerImpl` 的兜底析构为何不直接调用 `spdlog::shutdown()`
+### `~AprLoggerImpl` 的兜底析构为何不直接调用 `spdlog::shutdown()`
 
 进程静态销毁（`__cxa_finalize`）阶段访问 spdlog 的全局静态 registry / 线程池对象可能触发 `terminate`。因此兜底析构遵循三条安全边界：
 
@@ -544,12 +544,12 @@ SyLogger 采用 **PIMPL + 函数局部静态单例** 实现，`m_impl` 的分配
 | 标准要求 | 本库实现 |
 |----------|----------|
 | 成员分配与释放必须在同一 DLL | `m_impl` 由 Log DLL 内 `new`/`delete` 配对 |
-| 单例析构逻辑应唯一定义于 `.cpp` | `~SyLogger` 位于 `SyLogger.cpp`，不在头文件 |
+| 单例析构逻辑应唯一定义于 `.cpp` | `~AprLogger` 位于 `AprLogger.cpp`，不在头文件 |
 | 析构不应访问跨 DLL 共享的静态对象 | 兜底析构不触碰 spdlog registry / 线程池 |
 
 ### 最佳实践
 
-- **务必**在正常退出路径显式调用 `SyLogger::Shutdown()`（推荐由 `AppInitializer::shutdown()` 统一管理），以触发 `spdlog::shutdown()` 干净地 join 异步线程，避免丢日志。
+- **务必**在正常退出路径显式调用 `AprLogger::Shutdown()`（推荐由 `AppInitializer::shutdown()` 统一管理），以触发 `spdlog::shutdown()` 干净地 join 异步线程，避免丢日志。
 - 单例是函数局部静态变量，第一次 `GetInstance()` 时构造；勿在全局/静态对象构造期间（早于 main）使用日志宏。
 
 ## 技术规格
@@ -567,10 +567,10 @@ SyLogger 采用 **PIMPL + 函数局部静态单例** 实现，`m_impl` 的分配
 
 | 测试类别 | 测试内容 |
 |----------|----------|
-| SyLogLevelTest | 日志级别枚举值和比较 |
-| SyLogConfigTest | 配置结构体默认值和自定义配置 |
-| SyLoggerTest | 单例模式、初始化、关闭、级别控制、字符串日志、格式化日志、日志目录、并发日志、性能测试、错误处理 |
-| SyLoggerMacroTest | 日志宏功能验证 |
+| AprLogLevelTest | 日志级别枚举值和比较 |
+| AprLogConfigTest | 配置结构体默认值和自定义配置 |
+| AprLoggerTest | 单例模式、初始化、关闭、级别控制、字符串日志、格式化日志、日志目录、并发日志、性能测试、错误处理 |
+| AprLoggerMacroTest | 日志宏功能验证 |
 
 运行测试：
 
