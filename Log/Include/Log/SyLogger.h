@@ -1,9 +1,11 @@
 #pragma once
 
 // 临时兼容头（待删除）
-// Camera2D.cpp 当前处于他人未提交改动状态，本轮不修改该文件；
-// 其仍在使用旧宏名与旧头路径。待该改动提交后，改用 Log/AprLogger.h
-// 与 APR_* 宏，并删除本文件。
+// 旧代码仍使用 SY_* 日志宏，桥接到 APR_* 新宏。
+// 所有文件迁移完成后删除本文件，统一改用 Log/AprLogger.h。
 #include "Log/AprLogger.h"
 
-#define SY_WARNF APR_WARNF
+#define SY_DEBUGF APR_DEBUGF
+#define SY_INFOF  APR_INFOF
+#define SY_WARNF  APR_WARNF
+#define SY_ERRORF APR_ERRORF
